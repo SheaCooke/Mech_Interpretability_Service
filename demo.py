@@ -25,6 +25,16 @@ def demo_xor():
     )
  
     model.train(X, Y, epochs=3000, verbose=True, print_every=500)
+
+    activations = model.get_activations(model, X)
+
+    print('--activations start --')
+
+    for name, value in activations.items():
+        print(f'{name}  {value}')
+
+    print('--activations end --')
+    
  
     print("\nPredictions:")
     for xi, yi in zip(X, Y):
