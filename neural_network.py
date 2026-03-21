@@ -35,7 +35,7 @@ class NeuralNetwork:
     # Forward pass
     # ------------------------------------------------------------------
     def forward(self, X):
-        A = X
+        A = X 
         for layer in self.layers:
             A = layer.forward(A)
         return A
@@ -115,31 +115,6 @@ class NeuralNetwork:
         else:
             true = Y.flatten().astype(int)
         return np.mean(preds == true)
-    
-    def get_activations(self, model, x):
-        activations = {}
-        model.forward(x)
-        for i, layer in enumerate(model.layers):
-            activations[f"layer_{i}_Z"] = layer.Z   # pre-activation (linear output)
-            activations[f"layer_{i}_A"] = layer.A   # post-activation
-        return activations
-
-    def get_all_activations(self, model, X):
-        """
-        Run every sample in X through the network and collect
-        pre- and post-activations at every layer.
-        Returns a dict of shape (n_samples, layer_width) per layer.
-        """
-        activations = {f"layer_{i}_Z": [] for i in range(len(model.layers))}
-        activations.update({f"layer_{i}_A": [] for i in range(len(model.layers))})
-
-        for x in X:
-            model.forward(x.reshape(1, -1))
-            for i, layer in enumerate(model.layers):
-                activations[f"layer_{i}_Z"].append(layer.Z.flatten())
-                activations[f"layer_{i}_A"].append(layer.A.flatten())
-
-        return {k: np.array(v) for k, v in activations.items()}
  
     # ------------------------------------------------------------------
     # Save / Load

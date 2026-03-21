@@ -1,5 +1,6 @@
 import numpy as np
 from neural_network import NeuralNetwork
+from analyzer import Analyzer
 
 
 def demo_xor():
@@ -26,14 +27,21 @@ def demo_xor():
  
     model.train(X, Y, epochs=3000, verbose=True, print_every=500)
 
-    activations = model.get_activations(model, X)
+    analyzer = Analyzer(model, X)
+    print(f'activations: {analyzer.post_activations}')
+    print(f'vector: {analyzer.post_activations_vector}')
 
-    print('--activations start --')
 
-    for name, value in activations.items():
-        print(f'{name}  {value}')
+    # analyzer = Analyzer(model)
 
-    print('--activations end --')
+    # activations = analyzer.get_post_activations(X)
+
+    # print('--activations start --')
+
+    # for name, value in activations.items():
+    #     print(f'{name}  {value}')
+
+    # print('--activations end --')
     
  
     print("\nPredictions:")

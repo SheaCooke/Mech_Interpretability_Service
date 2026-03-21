@@ -11,7 +11,7 @@ Use cases:
 - RL models: 
 - regression models: 
 
-
+mechanistic interpretability as a service
 
 inference:
 (linear transformation)
@@ -24,3 +24,23 @@ inference:
 
 Where do you emit a value to track the activation path through the network?
 
+
+collect all activation values for each inference --> convert 2D list into a single vector --> cache the vector --> use cosine similarity to see how similar the activation path was to other records
+
+similar vector = they triggered similar neurons at a similar magnitude 
+
+TODO: later layers likely capture higher level patterns, should experiment with weighting the layers differently when the values are converted to a vector. should be configurable through a parameter
+
+is there a way to identify similarity|patterns at different layers?
+
+are there any benefits to using both pre and post activation values in vector to determine similarity?
+
+TODO: remove code for training once the program is accepting pytorch files
+
+analyzer functionality
+- get activations
+- create vectors
+- store activations
+
+
+TODO: API, K8s, front end
