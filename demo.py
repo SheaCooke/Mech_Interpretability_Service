@@ -104,8 +104,8 @@ def demo_xor():
     model.train(X, Y, epochs=5000, verbose=True, print_every=500)
 
     analyzer = Analyzer(model, X)
-    print(f'activations: {analyzer.post_activations}')
-    print(f'vector: {analyzer.post_activations_vector}')
+    #print(f'activations: {analyzer.post_activations}')
+    print(f'vector: {analyzer.activation_vectors}')
  
     print("\nPredictions:")
     for xi, yi in zip(X, Y):
