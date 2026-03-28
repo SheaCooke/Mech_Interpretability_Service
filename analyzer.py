@@ -7,9 +7,12 @@ class Analyzer:
         self.model = model
         self.post_activations = self.get_post_activations(test_data)
         #TODO: replace with dictionary that maps something to identify the record (lebel?) to its vector
-        self.post_activations_vector = self.create_vector_from_activations(self.post_activations)
+        #self.post_activations_vector = self.create_vector_from_activations(self.post_activations)
+        self.activation_vectors = {} # map the activation vector to the record that produced it
     
-    #TODO: update to handle test data > 1 record. should call create_vector_from_activations and store the values
+    """
+    Forward pass test data through all the layers, then go through and collect the cached activation values.
+    """
     def get_post_activations(self, x) -> dict[str, list[list[float]]]:
         activations = {}
         self.model.forward(x)

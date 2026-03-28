@@ -3,20 +3,96 @@ from neural_network import NeuralNetwork
 from analyzer import Analyzer
 
 
+# def demo_xor():
+#     print("=" * 60)
+#     print("DEMO 1: XOR Problem")
+#     print("=" * 60)
+ 
+#     X = np.array([[0, 0],
+#                   [0, 1],
+#                   [1, 0],
+#                   [1, 1]], dtype=float)
+
+#     Y = np.array([[0], [1], [1], [0]], dtype=float)
+ 
+#     model = NeuralNetwork(
+#         layer_configs=[
+#             {"input_size": 2,  "output_size": 8,  "activation": "tanh"},
+#             {"input_size": 8,  "output_size": 4,  "activation": "tanh"},
+#             {"input_size": 4,  "output_size": 1,  "activation": "sigmoid"},
+#         ],
+#         loss="binary_crossentropy",
+#         optimizer="adam",
+#         optimizer_params={"lr": 0.01},
+#     )
+ 
+#     model.train(X, Y, epochs=3000, verbose=True, print_every=500)
+
+#     analyzer = Analyzer(model, X)
+#     print(f'activations: {analyzer.post_activations}')
+#     print(f'vector: {analyzer.post_activations_vector}')
+
+
+#     # analyzer = Analyzer(model)
+
+#     # activations = analyzer.get_post_activations(X)
+
+#     # print('--activations start --')
+
+#     # for name, value in activations.items():
+#     #     print(f'{name}  {value}')
+
+#     # print('--activations end --')
+    
+ 
+#     print("\nPredictions:")
+#     for xi, yi in zip(X, Y):
+#         pred = model.predict(xi.reshape(1, -1))[0, 0]
+#         print(f"  Input: {xi.astype(int)} | Target: {int(yi[0])} | Predicted: {pred:.4f}")
+ 
+#     model.save("/tmp/xor_model.pkl")
+#     return model
+ 
+
+
 def demo_xor():
     print("=" * 60)
-    print("DEMO 1: XOR Problem")
+    print("DEMO 1: XOR Problem (4 features, 16 records)")
     print("=" * 60)
  
-    X = np.array([[0, 0],
-                  [0, 1],
-                  [1, 0],
-                  [1, 1]], dtype=float)
-    Y = np.array([[0], [1], [1], [0]], dtype=float)
+    # All 16 unique combinations of 4 binary features
+    X = np.array([[0, 0, 0, 0],
+                  [0, 0, 0, 1],
+                  [0, 0, 1, 0],
+                  [0, 0, 1, 1],
+                  [0, 1, 0, 0],
+                  [0, 1, 0, 1],
+                  [0, 1, 1, 0],
+                  [0, 1, 1, 1],
+                  [1, 0, 0, 0],
+                  [1, 0, 0, 1],
+                  [1, 0, 1, 0],
+                  [1, 0, 1, 1],
+                  [1, 1, 0, 0],
+                  [1, 1, 0, 1],
+                  [1, 1, 1, 0],
+                  [1, 1, 1, 1]], dtype=float)
+ 
+    # Label is 1 if the number of 1s across all features is odd, else 0
+    # This is the natural generalisation of XOR to multiple inputs
+    Y = (X.sum(axis=1) % 2).reshape(-1, 1)
+ 
+    print("Dataset:")
+    for xi, yi in zip(X, Y):
+        print(f"  {xi.astype(int)} → {int(yi[0])}")
  
     model = NeuralNetwork(
+        #output size = number of weights, input size = number of neurons
+        #the output size of 1 layer must equal the input size in the next layer. 
+        # outputs of the activation function = the number of weights
+        #The input size in the first layer will be the number of features
         layer_configs=[
-            {"input_size": 2,  "output_size": 8,  "activation": "tanh"},
+            {"input_size": 4,  "output_size": 8,  "activation": "tanh"},
             {"input_size": 8,  "output_size": 4,  "activation": "tanh"},
             {"input_size": 4,  "output_size": 1,  "activation": "sigmoid"},
         ],
@@ -25,33 +101,22 @@ def demo_xor():
         optimizer_params={"lr": 0.01},
     )
  
-    model.train(X, Y, epochs=3000, verbose=True, print_every=500)
+    model.train(X, Y, epochs=5000, verbose=True, print_every=500)
 
     analyzer = Analyzer(model, X)
     print(f'activations: {analyzer.post_activations}')
     print(f'vector: {analyzer.post_activations_vector}')
-
-
-    # analyzer = Analyzer(model)
-
-    # activations = analyzer.get_post_activations(X)
-
-    # print('--activations start --')
-
-    # for name, value in activations.items():
-    #     print(f'{name}  {value}')
-
-    # print('--activations end --')
-    
  
     print("\nPredictions:")
     for xi, yi in zip(X, Y):
         pred = model.predict(xi.reshape(1, -1))[0, 0]
-        print(f"  Input: {xi.astype(int)} | Target: {int(yi[0])} | Predicted: {pred:.4f}")
+        label = "✓" if round(pred) == int(yi[0]) else "✗"
+        print(f"  {label} Input: {xi.astype(int)} | Target: {int(yi[0])} | Predicted: {pred:.4f}")
  
     model.save("/tmp/xor_model.pkl")
     return model
- 
+
+
  
 # =============================================================================
 # Demo 2: Spiral Dataset (multi-class classification)
@@ -101,4 +166,4 @@ def demo_spiral():
 if __name__ == "__main__":
     np.random.seed(0)
     demo_xor()
-    demo_spiral()
+    #demo_spiral()
