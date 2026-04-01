@@ -45,3 +45,5 @@ analyzer functionality
 
 
 TODO: API, K8s, front end
+
+TODO: more organized way for tracking / downloading required packages
