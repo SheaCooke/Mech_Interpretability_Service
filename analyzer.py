@@ -15,16 +15,13 @@ class Analyzer:
     def get_post_activations_for_records(self, x) -> None:
         for record in x:
             self.model.forward(record)
-            activation_values = np.array([], dtype=float)
+            activation_values = []
 
             for layer in self.model.layers:
-                print(f'layer: {layer.A}')
-                np.append(activation_values, layer.A)
-                print(f'arr: {activation_values}')
+                activation_values.append(layer.A)
 
-            vector = tuple(activation_values)
-            if vector in self.activation_vectors:
-                print(f'vector already exists: {vector}')
+            flattened_vector = np.concatenate(activation_values, axis=None)
+            vector = tuple(flattened_vector)
             self.activation_vectors[vector] = record
 
 

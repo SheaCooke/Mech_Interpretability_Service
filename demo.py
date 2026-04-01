@@ -105,7 +105,13 @@ def demo_xor():
 
     analyzer = Analyzer(model, X)
     #print(f'activations: {analyzer.post_activations}')
-    print(f'vector: {analyzer.activation_vectors}')
+    print(f'num vector: {len(analyzer.activation_vectors)}')
+    for key, value in analyzer.activation_vectors.items():
+        print(f'vector: {key}')
+        print(f'first: {key[0]}')
+        print(f'record: {value}')
+        break
+
  
     print("\nPredictions:")
     for xi, yi in zip(X, Y):
