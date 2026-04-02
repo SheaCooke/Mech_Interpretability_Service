@@ -7,7 +7,7 @@ Goal:
 
 
 Use cases:
-- classification models: understand how resilient the model is to making a mistake between 2 classes? 
+- classification models: understand how resilient the model is to making a mistake between 2 classes?. verify model is grouping inputs logically. unexpected low distances can explain why misclassifications are happening. low distance between 2 records of different labels can indicate that the model needs more training. can help identify gaps in training if some records have an extremely high cosine distance
 - RL models: 
 - regression models: 
 - content moderation with LLMs?? for example, collect the vectors that represent activity for topics that the LLM is not supposed to discuss, then evaluate query responses for similarity to those collection of vectors before it is returned to the user
