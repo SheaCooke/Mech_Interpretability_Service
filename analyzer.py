@@ -55,9 +55,9 @@ class Analyzer:
         #distance_matrix[0][1] = cosine distance between organized_vectors[0] and organized_vectors[1]
         # 0 = identical, 1.0 = orthogonal, 2.0 = opposite
         distance_matrix = cdist(organized_vectors, organized_vectors, metric='cosine')
-        #TODO: how do we associate the cosine distance back to the original vectors and records?
+        #TODO: how do we associate the cosine distance back to the original vectors and records? use the index values?
         #TODO: experiment with dot product instead of cosine distance. make option configurable
-
+        
         return distance_matrix
 
     #TODO: algorithm to sort cosine distances, display the most similar records based on the activation
