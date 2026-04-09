@@ -1,6 +1,7 @@
 import numpy as np
 from neural_network import NeuralNetwork
 from analyzer import Analyzer
+from model_processor.model_processor import Model_Processor
 
 
 # def demo_xor():
@@ -165,11 +166,24 @@ def demo_spiral():
     return model
  
  
-# =============================================================================
-# Entry Point
-# =============================================================================
+def demo_model_ingest():
+    mp = Model_Processor()
+    print('weights ----------------- ')
+    print(mp.weights)
+    print('biases ----------------- ')
+    print(mp.biases)
+    print('activation_functions ----------------- ')
+    print(mp.activation_functions)
+    print('parameters ----------------- ')
+    print(mp.parameters)
+
+
+
+
+
  
 if __name__ == "__main__":
-    np.random.seed(0)
-    demo_xor()
+    # np.random.seed(0)
+    # demo_xor()
     #demo_spiral()
+    demo_model_ingest()

@@ -1,12 +1,18 @@
 import numpy as np
-import pickle
+from abc import ABC, abstractmethod
  
  
-# =============================================================================
-# Activation Functions
-# =============================================================================
- 
-class ReLU:
+class ActivationFunction(ABC):
+    @abstractmethod
+    def forward(self, data):
+        pass
+
+    @abstractmethod
+    def backward(self, data):
+        pass
+
+
+class ReLU(ActivationFunction):
     def forward(self, Z):
         self.cache = Z
         return np.maximum(0, Z)
@@ -15,7 +21,7 @@ class ReLU:
         return dA * (self.cache > 0)
  
  
-class Sigmoid:
+class Sigmoid(ActivationFunction):
     def forward(self, Z):
         self.cache = 1 / (1 + np.exp(-np.clip(Z, -500, 500)))
         return self.cache
@@ -25,7 +31,7 @@ class Sigmoid:
         return dA * s * (1 - s)
  
  
-class Tanh:
+class Tanh(ActivationFunction):
     def forward(self, Z):
         self.cache = np.tanh(Z)
         return self.cache
@@ -34,7 +40,7 @@ class Tanh:
         return dA * (1 - self.cache ** 2)
  
  
-class Softmax:
+class Softmax(ActivationFunction):
     def forward(self, Z):
         # Subtract max for numerical stability
         shifted = Z - np.max(Z, axis=1, keepdims=True)
