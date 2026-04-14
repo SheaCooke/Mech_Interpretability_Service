@@ -169,9 +169,9 @@ def demo_spiral():
 def demo_model_ingest():
     mp = Model_Processor()
     print('weights ----------------- ')
-    print(mp.weights)
+    print(len(mp.weights))
     print('biases ----------------- ')
-    print(mp.biases)
+    print(len(mp.biases))
     print('activation_functions ----------------- ')
     print(mp.activation_functions)
     print('parameters ----------------- ')

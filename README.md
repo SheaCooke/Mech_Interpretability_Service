@@ -49,7 +49,7 @@ TODO: API, K8s, front end
 TODO: more organized way for tracking / downloading required packages
 
 
-python3 -m venv .venv
-source .venv/bin/activate
-// python -m pip install --upgrade pip setuptools wheel
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgerade pip
 pip install -r requirements.txt

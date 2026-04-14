@@ -14,8 +14,38 @@ class Model_Processor:
         file_type = file_path.split('.')[-1]
         model = None
         if file_type == 'keras':
-            model = keras.saving.load_model(file_path)
-        #TODO: extend with more file types
+            try:
+                model = keras.saving.load_model(file_path)
+            except TypeError:
+                #model version is not fully supported. need to override some functions to be able to process it
+                #TODO: display what values are being overriden to the user
+                layers_to_patch = [
+                    keras.layers.Dense,
+                    keras.layers.Conv2D,
+                    keras.layers.LSTM,
+                    keras.layers.GRU,
+                    keras.layers.Embedding,
+                    keras.layers.BatchNormalization,
+                ]
+                originals = {layer: layer.__init__ for layer in layers_to_patch}
+
+                def make_patched_init(original):
+                    def patched_init(self, *args, **kwargs):
+                        known_kwargs = original.__code__.co_varnames[:original.__code__.co_argcount]
+                        unknown = [k for k in kwargs if k not in known_kwargs]
+                        for k in unknown:
+                            kwargs.pop(k)
+                        original(self, *args, **kwargs)
+                    return patched_init
+
+                for layer in layers_to_patch:
+                    layer.__init__ = make_patched_init(originals[layer])
+
+                try:
+                    model = keras.saving.load_model(file_path)
+                finally:
+                    for layer, original in originals.items():
+                        layer.__init__ = original
         return model
 
 #TODO: update other methods to work with more than just Keras
