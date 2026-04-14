@@ -38,6 +38,8 @@ are there any benefits to using both pre and post activation values in vector to
 
 TODO: remove code for training once the program is accepting pytorch files
 
+TODO: support updating parameters, or activation functions through the UI
+
 analyzer functionality
 - get activations
 - create vectors
@@ -53,3 +55,11 @@ python3 -m venv venv
 source venv/bin/activate
 pip install --upgerade pip
 pip install -r requirements.txt
+
+
+--------------
+model is ingesting properly
+- crate custom version using the weights, biases and parameters
+- run the training data through it
+- collect the activation vectors
+- find some useful way to display that

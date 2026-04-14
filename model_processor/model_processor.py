@@ -49,7 +49,7 @@ class Model_Processor:
         return model
 
 #TODO: update other methods to work with more than just Keras
-    def __extract_weights(self) -> list[list[float]]:
+    def __extract_weights(self) -> list[list[list[float]]]:
         weights = []
         for layer in self.model.layers:
             layer_weights = layer.get_weights()
@@ -74,13 +74,15 @@ class Model_Processor:
         return activation_functions
 
     def __extract_parameters(self) -> dict:
+        #only need layers that are relevant to inference, not training
+        irrelevant_layer_types = {'dropout', 'activityregularization', 'gaussiannoise', 'gaussiandropout', 'alphadropout'}
         return {
             'total_params': self.model.count_params(),
             'trainable_params': sum(tf.size(w).numpy() for w in self.model.trainable_weights),
             'non_trainable_params': sum(tf.size(w).numpy() for w in self.model.non_trainable_weights),
             'num_layers': len(self.model.layers),
             'layer_names': [layer.name for layer in self.model.layers],
-            'layer_types': [type(layer).__name__ for layer in self.model.layers],
+            'layer_types': [type(layer).__name__ for layer in self.model.layers if type(layer).__name__.lower() not in irrelevant_layer_types ],
             'input_shape': self.model.input_shape,
             'output_shape': self.model.output_shape,
         }
