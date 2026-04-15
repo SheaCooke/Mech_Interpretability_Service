@@ -59,8 +59,7 @@ pip install -r requirements.txt
 
 
 --------------
-model is ingesting properly
-- crate custom version using the weights, biases and parameters
+model is loaded properly
 - run the training data through it
 - collect the activation vectors
 - find some useful way to display that

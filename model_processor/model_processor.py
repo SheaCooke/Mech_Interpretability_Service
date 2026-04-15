@@ -6,6 +6,7 @@ import onnxruntime as ort
 import torch
 import torch.nn as nn
 from typing import Optional
+import pandas as pd
 
 class Model_Processor:
     SUPPORTED_FORMATS = ['keras', 'onnx', 'pt', 'pth']
@@ -224,7 +225,7 @@ class Model_Processor:
     def __run_keras_inference(self, test_data: list[dict]) -> list[dict]:
         # Build activation model - outputs every layer's activations
         activation_model = keras.Model(
-            inputs=self.model.input,
+            inputs=self.model.inputs,
             outputs=[layer.output for layer in self.model.layers]
         )
 
@@ -325,3 +326,189 @@ class Model_Processor:
             hook.remove()
 
         return results
+    
+    SUPPORTED_DATASET_FORMATS = ['csv', 'npz']
+
+    def load_dataset(self, file_path: str, label_column: Optional[str] = None) -> list[dict]:
+        """
+        Loads a dataset from a .csv or .npz file and returns a standardized
+        list of records ready for inference.
+
+        For CSV:
+            label_column: name of the column containing the label e.g. 'label'
+            all other columns are treated as input features
+
+        For NPZ:
+            expects 'x_test' and optionally 'y_test' arrays
+            e.g. np.savez('data.npz', x_test=x_test, y_test=y_test)
+        """
+        ext = file_path.split('.')[-1].lower()
+        if ext not in self.SUPPORTED_DATASET_FORMATS:
+            raise ValueError(
+                f"Unsupported dataset format: .{ext}. "
+                f"Supported formats: {self.SUPPORTED_DATASET_FORMATS}"
+            )
+
+        loaders = {
+            'csv': self.__load_csv_dataset,
+            'npz': self.__load_npz_dataset,
+        }
+        return loaders[ext](file_path, label_column)
+
+    def __load_csv_dataset(self, file_path: str, label_column: Optional[str]) -> list[dict]:
+        df = pd.read_csv(file_path)
+
+        # Validate label column if provided
+        if label_column and label_column not in df.columns:
+            raise ValueError(
+                f"Label column '{label_column}' not found in CSV. "
+                f"Available columns: {list(df.columns)}"
+            )
+
+        records = []
+        for idx, row in df.iterrows():
+            if label_column:
+                label = row[label_column]
+                input_data = row.drop(label_column).to_numpy().astype(np.float32)
+            else:
+                label = None
+                input_data = row.to_numpy().astype(np.float32)
+
+            records.append({
+                'id':    f"record_{idx}",
+                'input': input_data,
+                'label': int(label) if label is not None else None,
+            })
+
+        return records
+
+    def __load_npz_dataset(self, file_path: str, label_column: Optional[str] = None) -> list[dict]:
+        data = np.load(file_path, allow_pickle=False)
+
+        # Validate expected keys
+        if 'x_test' not in data:
+            raise ValueError(
+                f"NPZ file must contain 'x_test' array. "
+                f"Found keys: {list(data.keys())}"
+            )
+
+        x_test = data['x_test']
+        y_test = data['y_test'] if 'y_test' in data else None
+
+        records = []
+        for idx, input_data in enumerate(x_test):
+            records.append({
+                'id':    f"record_{idx}",
+                'input': input_data.astype(np.float32),
+                'label': int(y_test[idx]) if y_test is not None else None,
+            })
+
+        return records
+
+    # -------------------------
+    # Full Pipeline
+    # -------------------------
+
+    def run_full_inference(
+        self,
+        dataset_path: str,
+        label_column: Optional[str] = None,
+        batch_size: Optional[int] = None,
+    ) -> dict:
+        """
+        Full pipeline: loads dataset, runs inference, returns results with summary.
+
+        dataset_path: path to .csv or .npz file
+        label_column: column name for labels in CSV files
+        batch_size:   if provided, processes records in batches (useful for large datasets)
+
+        Returns a dict with:
+            - records:  list of records with activations and predictions
+            - summary:  accuracy, total records, correct predictions etc.
+        """
+        print(f"Loading dataset from {dataset_path}...")
+        records = self.load_dataset(dataset_path, label_column)
+        print(f"Loaded {len(records)} records.")
+
+        print(f"Running inference using {self.format} model...")
+        if batch_size:
+            results = self.__run_batched_inference(records, batch_size)
+        else:
+            results = self.run_inference(records)
+        print(f"Inference complete.")
+
+        summary = self.__summarize_results(results)
+
+        return {
+            'records': results,
+            'summary': summary,
+        }
+
+    def __run_batched_inference(self, records: list[dict], batch_size: int) -> list[dict]:
+        """
+        Splits records into batches and runs inference on each batch.
+        Useful for large datasets that would be slow or memory intensive
+        to run all at once.
+        """
+        results = []
+        total = len(records)
+        num_batches = (total + batch_size - 1) // batch_size  # ceiling division
+
+        for batch_idx in range(num_batches):
+            start = batch_idx * batch_size
+            end = min(start + batch_size, total)
+            batch = records[start:end]
+
+            print(f"  Processing batch {batch_idx + 1}/{num_batches} "
+                  f"(records {start}-{end - 1})...")
+
+            batch_results = self.run_inference(batch)
+            results.extend(batch_results)
+
+        return results
+
+    def __summarize_results(self, results: list[dict]) -> dict:
+        """
+        Summarizes inference results including accuracy and per-class breakdown.
+        Only calculates accuracy metrics if labels were provided in the dataset.
+        """
+        total = len(results)
+        has_labels = all(r['label'] is not None for r in results)
+
+        if not has_labels:
+            return {
+                'total_records':    total,
+                'has_labels':       False,
+            }
+
+        correct = sum(1 for r in results if r['correct'])
+        incorrect = total - correct
+        accuracy = correct / total if total > 0 else 0.0
+
+        # Per class breakdown
+        class_results = {}
+        for record in results:
+            label = record['label']
+            if label not in class_results:
+                class_results[label] = {'total': 0, 'correct': 0}
+            class_results[label]['total'] += 1
+            if record['correct']:
+                class_results[label]['correct'] += 1
+
+        per_class_accuracy = {
+            label: {
+                'total':    stats['total'],
+                'correct':  stats['correct'],
+                'accuracy': stats['correct'] / stats['total'],
+            }
+            for label, stats in sorted(class_results.items())
+        }
+
+        return {
+            'total_records':      total,
+            'has_labels':         True,
+            'correct':            correct,
+            'incorrect':          incorrect,
+            'accuracy':           accuracy,
+            'per_class_accuracy': per_class_accuracy,
+        }
