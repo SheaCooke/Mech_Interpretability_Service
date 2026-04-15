@@ -167,15 +167,18 @@ def demo_spiral():
  
  
 def demo_model_ingest():
-    mp = Model_Processor()
-    print('weights ----------------- ')
-    print(len(mp.weights[0]))
-    print('biases ----------------- ')
-    print(len(mp.biases[0]))
-    print('activation_functions ----------------- ')
-    print(mp.activation_functions)
-    print('parameters ----------------- ')
-    print(mp.parameters)
+    # mp = Model_Processor()
+    # print('weights ----------------- ')
+    # print(f'mp.weights[0]: {len(mp.weights[0])}')
+    # print(f'mp.weights[0][0]: {len(mp.weights[0][0])}')
+    # print('biases ----------------- ')
+    # print(len(mp.biases[0]))
+    # print('activation_functions ----------------- ')
+    # print(mp.activation_functions)
+    # print('parameters ----------------- ')
+    # print(mp.parameters)
+    mp = Model_Processor('test/test_model.keras')
+    print(f'data:\n{mp.model_data}')
 
 
 
