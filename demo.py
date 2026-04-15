@@ -1,6 +1,6 @@
 import numpy as np
 from analyzer import Analyzer
-from model_processor.model_processor import Model_Processor
+from model_processing.model_processor import Model_Processor
 
 
 # def demo_xor():
@@ -179,6 +179,7 @@ def demo_model_ingest():
     mp = Model_Processor('test/test_model.keras')
     #print(f'data:\n{mp.model_data}')
     results = mp.run_full_inference('test/test_data.npz')
+    av: list[dict] = results['activation_vectors']
 
     print(results['summary'])
 

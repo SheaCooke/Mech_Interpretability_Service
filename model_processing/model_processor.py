@@ -234,13 +234,21 @@ class Model_Processor:
             input_data = np.expand_dims(record['input'], axis=0)  # add batch dimension
             layer_activations = activation_model.predict(input_data, verbose=0)
 
-            activations = {
-                layer.name: layer_activation[0].tolist()
-                for layer, layer_activation in zip(self.model.layers, layer_activations)
-            }
+            # activations = {
+            #     layer.name: layer_activation[0].tolist()
+            #     for layer, layer_activation in zip(self.model.layers, layer_activations)
+            # }
+            #TODO: replace with a datastructure that is more efficient for comparing vectors
+            activations = [layer_activation[0].tolist() for layer_activation in layer_activations] 
+            #activations = tuple(np.concatenate(layer_activations).flatten())
+
+            if len(results) == 0: #TODO: remove
+                print('first activations -------------- \n')
+                print(activations)
+                print('end --------------- \n')
 
             results.append({
-                'id':          record['id'],
+                'id':          record['id'], #TODO: id wont always be a column
                 'input':       record['input'].tolist(),
                 'label':       record.get('label'),
                 'predicted':   int(np.argmax(layer_activations[-1][0])),
@@ -402,6 +410,8 @@ class Model_Processor:
                 'input': input_data.astype(np.float32),
                 'label': int(y_test[idx]) if y_test is not None else None,
             })
+        
+        print(f'first test record: {records[0]}') #TODO: remove
 
         return records
 
@@ -440,7 +450,7 @@ class Model_Processor:
         summary = self.__summarize_results(results)
 
         return {
-            'records': results,
+            'activation_vectors': results,
             'summary': summary,
         }
 
