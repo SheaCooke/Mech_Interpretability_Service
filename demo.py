@@ -1,6 +1,7 @@
 import numpy as np
 from analyzer import Analyzer
 from model_processing.model_processor import Model_Processor
+from model_processing.vector_analyzer import Vector_Analyzer
 
 
 # def demo_xor():
@@ -179,7 +180,17 @@ def demo_model_ingest():
     mp = Model_Processor('test/test_model.keras')
     #print(f'data:\n{mp.model_data}')
     results = mp.run_full_inference('test/test_data.npz')
-    av: list[dict] = results['activation_vectors']
+    
+    va = Vector_Analyzer(results['inference_results'])
+
+    print(f' inference_results {len(va.inference_results)}')
+    print(f' id_map {len(va.id_map)}')
+    print(f' activation_matrix {len(va.activation_matrix)}')
+    print(f' distance_matrix {len(va.distance_matrix)}')
+
+    similar = va.find_all_similar_pairs()
+
+    print(f'similar\n{similar[:2]}')
 
     print(results['summary'])
 

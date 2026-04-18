@@ -234,13 +234,14 @@ class Model_Processor:
             input_data = np.expand_dims(record['input'], axis=0)  # add batch dimension
             layer_activations = activation_model.predict(input_data, verbose=0)
 
-            # activations = {
-            #     layer.name: layer_activation[0].tolist()
-            #     for layer, layer_activation in zip(self.model.layers, layer_activations)
-            # }
-            #TODO: replace with a datastructure that is more efficient for comparing vectors
-            activations = [layer_activation[0].tolist() for layer_activation in layer_activations] 
-            #activations = tuple(np.concatenate(layer_activations).flatten())
+            # Concatenate all layer activations into a single flat 1D vector per record.
+            # This allows efficient cosine distance computation across many records
+            # using scipy.spatial.distance.cdist(activation_matrix, activation_matrix, 'cosine')
+            # where activation_matrix is a 2D array of shape (num_records, total_activation_size)
+            activations = np.concatenate([
+                layer_activation[0].flatten()
+                for layer_activation in layer_activations
+            ])
 
             if len(results) == 0: #TODO: remove
                 print('first activations -------------- \n')
@@ -413,7 +414,7 @@ class Model_Processor:
         
         print(f'first test record: {records[0]}') #TODO: remove
 
-        return records
+        return records[:10] #TODO: remove after initial testing
 
     # -------------------------
     # Full Pipeline
@@ -450,7 +451,7 @@ class Model_Processor:
         summary = self.__summarize_results(results)
 
         return {
-            'activation_vectors': results,
+            'inference_results': results,
             'summary': summary,
         }
 
