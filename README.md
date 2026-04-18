@@ -7,7 +7,7 @@ Goal:
 
 
 Use cases:
-- classification models: understand how resilient the model is to making a mistake between 2 classes?. verify model is grouping inputs logically. unexpected low distances can explain why misclassifications are happening. low distance between 2 records of different labels can indicate that the model needs more training. can help identify gaps in training if some records have an extremely high cosine distance
+- classification models: understand how resilient the model is to making a mistake between 2 classes?. verify model is grouping inputs logically. unexpected low distances can explain why misclassifications are happening. low distance between 2 records of different labels can indicate that the model needs more training. can help identify gaps in training if some records have an extremely high cosine distance. Identify circuits for different operations or categories.
 - RL models: 
 - regression models: 
 - content moderation with LLMs?? for example, collect the vectors that represent activity for topics that the LLM is not supposed to discuss, then evaluate query responses for similarity to those collection of vectors before it is returned to the user
@@ -40,6 +40,8 @@ TODO: remove code for training once the program is accepting pytorch files
 
 TODO: support updating parameters, or activation functions through the UI
 
+TODO: when the default visualizations are displayed, there should be a way for the user to enter python code to update the visual and perform further analysis. Basically this is a default set of visualizations and analysis for a model and a test dataset, and a studio for storing previous analysis/results. Should also be able to send activation vectors to API from google colab, and then retreive some analysis about them using some returned ID.
+
 analyzer functionality
 - get activations
 - create vectors
@@ -48,7 +50,6 @@ analyzer functionality
 
 TODO: API, K8s, front end
 
-TODO: more organized way for tracking / downloading required packages
 
 
 python3 -m venv venv
@@ -58,8 +59,7 @@ pip install -r requirements.txt
 
 
 --------------
-model is ingesting properly
-- crate custom version using the weights, biases and parameters
+model is loaded properly
 - run the training data through it
 - collect the activation vectors
 - find some useful way to display that
