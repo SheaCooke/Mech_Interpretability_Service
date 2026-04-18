@@ -8,7 +8,6 @@ class Vector_Analyzer:
         self.id_map = self.get_id_mapping(inference_results)
         self.activation_matrix = self.get_activation_matrix(inference_results)
         self.distance_matrix = self.get_distance_matrix(self.activation_matrix)
-        #self.record_av_mapping: dict[str,ndarray] = self.create_record_av_mapping(inference_results)
         """
         Shape of vectors
         {
@@ -21,15 +20,6 @@ class Vector_Analyzer:
         }
         """
     
-    # """
-    # maps the record id to a vector of activations
-    # """
-    # def create_record_av_mapping(self, inference_results) -> dict[str,ndarray]:
-    #     mapping = {}
-    #     for result in inference_results:
-    #         mapping[result['id']] = result['activations']
-        
-    #     return mapping
 
     def get_id_mapping(self, inf_results: list[dict]) -> np.ndarray:
         return [r['id'] for r in inf_results]

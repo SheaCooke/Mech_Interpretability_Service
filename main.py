@@ -1,0 +1,310 @@
+import os
+import uuid
+import tempfile
+import numpy as np
+from typing import Optional
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+# --- Import your existing classes ---
+# from model_processor.model_processor import Model_Processor
+# from vector_analyzer import Vector_Analyzer
+# For now we assume they are importable from the same directory or PYTHONPATH.
+
+app = FastAPI(title="Neural Network Analyzer API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# -------------------------------------------------------
+# In-memory session store
+# Each session holds a loaded Model_Processor and optionally
+# the results of the last inference run.
+# -------------------------------------------------------
+sessions: dict[str, dict] = {}
+
+SUPPORTED_MODEL_EXTENSIONS = {"keras", "onnx", "pt", "pth"}
+SUPPORTED_DATASET_EXTENSIONS = {"csv", "npz"}
+
+
+# -------------------------------------------------------
+# Request / Response schemas
+# -------------------------------------------------------
+
+class SimilarPairsRequest(BaseModel):
+    session_id: str
+    threshold: float = 0.1
+
+
+class InferenceRequest(BaseModel):
+    session_id: str
+    label_column: Optional[str] = None
+    batch_size: Optional[int] = None
+
+
+# -------------------------------------------------------
+# Helpers
+# -------------------------------------------------------
+
+def _ext(filename: str) -> str:
+    return filename.rsplit(".", 1)[-1].lower()
+
+
+def _require_session(session_id: str) -> dict:
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found. Upload a model first.")
+    return sessions[session_id]
+
+
+def _numpy_safe(obj):
+    """Recursively convert numpy types to native Python types for JSON serialisation."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: _numpy_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_numpy_safe(i) for i in obj]
+    return obj
+
+
+# -------------------------------------------------------
+# Routes
+# -------------------------------------------------------
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# ── 1. Upload model ──────────────────────────────────────
+
+@app.post("/upload/model")
+async def upload_model(file: UploadFile = File(...)):
+    """
+    Accepts a model file (.keras, .onnx, .pt, .pth).
+    Saves it to a temp file, loads it via Model_Processor,
+    and returns a session_id for subsequent calls.
+    """
+    ext = _ext(file.filename)
+    if ext not in SUPPORTED_MODEL_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model format '.{ext}'. Supported: {SUPPORTED_MODEL_EXTENSIONS}",
+        )
+
+    # Write upload to a named temp file that persists for the session
+    tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
+    try:
+        contents = await file.read()
+        tmp.write(contents)
+        tmp.flush()
+        tmp.close()
+
+        # Lazy import so the server starts even if ML deps aren't installed
+        from model_processing.model_processor import Model_Processor
+
+        processor = Model_Processor(tmp.name)
+    except Exception as e:
+        os.unlink(tmp.name)
+        raise HTTPException(status_code=422, detail=f"Failed to load model: {str(e)}")
+
+    session_id = str(uuid.uuid4())
+    sessions[session_id] = {
+        "processor": processor,
+        "model_tmp_path": tmp.name,
+        "model_filename": file.filename,
+        "dataset_records": None,
+        "inference_results": None,
+        "vector_analyzer": None,
+    }
+
+    return {
+        "session_id": session_id,
+        "filename": file.filename,
+        "model_data": _numpy_safe(processor.model_data),
+    }
+
+
+# ── 2. Upload dataset ────────────────────────────────────
+
+@app.post("/upload/dataset")
+async def upload_dataset(
+    session_id: str,
+    label_column: Optional[str] = None,
+    file: UploadFile = File(...),
+):
+    """
+    Accepts a dataset file (.csv or .npz) and associates it with an existing session.
+    """
+    session = _require_session(session_id)
+
+    ext = _ext(file.filename)
+    if ext not in SUPPORTED_DATASET_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported dataset format '.{ext}'. Supported: {SUPPORTED_DATASET_EXTENSIONS}",
+        )
+
+    tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
+    try:
+        contents = await file.read()
+        tmp.write(contents)
+        tmp.flush()
+        tmp.close()
+
+        processor: "Model_Processor" = session["processor"]
+        records = processor.load_dataset(tmp.name, label_column)
+    except Exception as e:
+        os.unlink(tmp.name)
+        raise HTTPException(status_code=422, detail=f"Failed to load dataset: {str(e)}")
+    finally:
+        # Dataset is loaded into memory; temp file no longer needed
+        if os.path.exists(tmp.name):
+            os.unlink(tmp.name)
+
+    session["dataset_records"] = records
+    session["inference_results"] = None   # invalidate previous results
+    session["vector_analyzer"] = None
+
+    return {
+        "session_id": session_id,
+        "filename": file.filename,
+        "num_records": len(records),
+        "sample": _numpy_safe(
+            [{k: v for k, v in r.items() if k != "input"} for r in records[:5]]
+        ),
+    }
+
+
+# ── 3. Run inference ─────────────────────────────────────
+
+@app.post("/inference/run")
+def run_inference(body: InferenceRequest):
+    """
+    Runs the full inference pipeline on the previously uploaded dataset.
+    Stores results in the session.
+    """
+    session = _require_session(body.session_id)
+
+    if session["dataset_records"] is None:
+        raise HTTPException(status_code=400, detail="No dataset loaded for this session. Upload a dataset first.")
+
+    processor: "Model_Processor" = session["processor"]
+    records = session["dataset_records"]
+
+    try:
+        if body.batch_size:
+            # reuse the private batched runner via the public pipeline method but
+            # we already have records loaded, so call run_inference directly in batches
+            results = processor._Model_Processor__run_batched_inference(records, body.batch_size)
+        else:
+            results = processor.run_inference(records)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
+
+    # Build Vector_Analyzer immediately so distance matrix is ready
+    from model_processing.vector_analyzer import Vector_Analyzer
+    analyzer = Vector_Analyzer(results)
+
+    session["inference_results"] = results
+    session["vector_analyzer"] = analyzer
+
+    # Build summary
+    summary = processor._Model_Processor__summarize_results(results)
+
+    return {
+        "session_id": body.session_id,
+        "num_results": len(results),
+        "summary": _numpy_safe(summary),
+    }
+
+
+# ── 4. Get inference results ─────────────────────────────
+
+@app.get("/inference/results")
+def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
+    """
+    Returns a paginated slice of inference results (without raw activation vectors
+    to keep payload size manageable).
+    """
+    session = _require_session(session_id)
+
+    if session["inference_results"] is None:
+        raise HTTPException(status_code=400, detail="No inference results available. Run inference first.")
+
+    results = session["inference_results"]
+    page = results[offset: offset + limit]
+
+    # Strip raw activation arrays from the response — they are large and not
+    # needed by the frontend for display purposes.
+    stripped = [
+        {k: v for k, v in r.items() if k != "activations" and k != "input"}
+        for r in page
+    ]
+
+    return {
+        "session_id": session_id,
+        "total": len(results),
+        "offset": offset,
+        "limit": limit,
+        "results": _numpy_safe(stripped),
+    }
+
+
+# ── 5. Similar pairs ─────────────────────────────────────
+
+@app.post("/analysis/similar-pairs")
+def similar_pairs(body: SimilarPairsRequest):
+    """
+    Returns all record pairs whose cosine distance is below `threshold`.
+    """
+    session = _require_session(body.session_id)
+
+    if session["vector_analyzer"] is None:
+        raise HTTPException(status_code=400, detail="No inference results available. Run inference first.")
+
+    analyzer: "Vector_Analyzer" = session["vector_analyzer"]
+
+    try:
+        pairs = analyzer.find_all_similar_pairs(threshold=body.threshold)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+    return {
+        "session_id": body.session_id,
+        "threshold": body.threshold,
+        "num_pairs": len(pairs),
+        "pairs": _numpy_safe(pairs),
+    }
+
+
+# ── 6. Model data ─────────────────────────────────────────
+
+@app.get("/model/data")
+def get_model_data(session_id: str):
+    session = _require_session(session_id)
+    processor: "Model_Processor" = session["processor"]
+    return _numpy_safe(processor.model_data)
+
+
+# ── 7. Session cleanup ────────────────────────────────────
+
+@app.delete("/session/{session_id}")
+def delete_session(session_id: str):
+    session = _require_session(session_id)
+    tmp = session.get("model_tmp_path")
+    if tmp and os.path.exists(tmp):
+        os.unlink(tmp)
+    del sessions[session_id]
+    return {"deleted": session_id}

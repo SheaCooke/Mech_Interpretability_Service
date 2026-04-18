@@ -58,6 +58,15 @@ pip install --upgerade pip
 pip install -r requirements.txt
 
 
+# Terminal 1 — backend
+source venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 — frontend
+npm run dev
+
+
+
 --------------
 model is loaded properly
 - run the training data through it
