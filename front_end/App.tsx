@@ -7,7 +7,7 @@ import {
 } from "./api/client";
 import type {
   ModelData, InferenceSummary, SimilarPair,
-  DatasetMeta, StatusMessage, Step, PredictionFilter,
+  DatasetMeta, StatusMessage, Step, PredictionFilter, Page,
 } from "./types";
 import type { ClusterPlotData } from "./api/client";
 import Header       from "./components/Header";
@@ -17,8 +17,13 @@ import ModelInfo    from "./components/ModelInfo";
 import SummaryPanel from "./components/SummaryPanel";
 import PairsPanel   from "./components/PairsPanel";
 import ClusterPlot  from "./components/ClusterPlot";
+import InstructionsPage from "./pages/InstructionsPage";
+import InterpretingPage from "./pages/InterpretingPage";
 
 export default function App() {
+    // ── Page routing ──────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<Page>("home");
+
   const [sessionId,        setSessionId]        = useState<string | null>(null);
   const [modelData,        setModelData]        = useState<ModelData | null>(null);
   const [datasetMeta,      setDatasetMeta]      = useState<DatasetMeta | null>(null);
@@ -108,7 +113,21 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header step={step} sessionId={sessionId} onReset={handleReset} />
+      <Header
+        step={step}
+        sessionId={sessionId}
+        currentPage={currentPage}
+        onNavigate={setCurrentPage}
+        onReset={handleReset}
+      />
+            {/* Instructions page */}
+      {currentPage === "instructions" && <InstructionsPage />}
+ 
+      {/* Interpreting results page */}
+      {currentPage === "interpreting" && <InterpretingPage />}
+
+      {/* Home page */}
+      {currentPage === "home" && (
       <main className="main">
         {status && <StatusBar {...status} />}
         <div className="columns">
@@ -144,6 +163,7 @@ export default function App() {
           </div>
         </div>
       </main>
+      )}
     </div>
   );
 }

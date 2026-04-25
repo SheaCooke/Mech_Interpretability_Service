@@ -117,11 +117,11 @@ export default function Sidebar({
         {/* Threshold slider */}
         <div className="threshold-row">
           <label className="threshold-label">
-            Similarity threshold{" "}
+            Similarity threshold (cosine distance){" "}
             <span className="threshold-val">{threshold.toFixed(2)}</span>
           </label>
           <input
-            type="range" min={0.01} max={0.5} step={0.01}
+            type="range" min={0.00} max={1.0} step={0.01}
             value={threshold}
             onChange={(e) => onThresholdChange(parseFloat(e.target.value))}
             disabled={step !== "analysis" || loading}

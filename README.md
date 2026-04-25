@@ -12,7 +12,6 @@ Use cases:
 - regression models: 
 - content moderation with LLMs?? for example, collect the vectors that represent activity for topics that the LLM is not supposed to discuss, then evaluate query responses for similarity to those collection of vectors before it is returned to the user
 
-mechanistic interpretability as a service
 
 inference:
 (linear transformation)
@@ -23,32 +22,13 @@ inference:
 - the output (z) is then passed through an activation function (run once per layer. done with a vector for optimization, conceptually each neuron runs it. Activation func is applied elementwise (aka, iterates over all values within the vector))
 
 
-Where do you emit a value to track the activation path through the network?
-
-
-collect all activation values for each inference --> convert 2D list into a single vector --> cache the vector --> use cosine similarity to see how similar the activation path was to other records
-
 similar vector = they triggered similar neurons at a similar magnitude 
 
-TODO: later layers likely capture higher level patterns, should experiment with weighting the layers differently when the values are converted to a vector. should be configurable through a parameter
 
 is there a way to identify similarity|patterns at different layers?
 
 are there any benefits to using both pre and post activation values in vector to determine similarity?
 
-TODO: remove code for training once the program is accepting pytorch files
-
-TODO: support updating parameters, or activation functions through the UI
-
-TODO: when the default visualizations are displayed, there should be a way for the user to enter python code to update the visual and perform further analysis. Basically this is a default set of visualizations and analysis for a model and a test dataset, and a studio for storing previous analysis/results. Should also be able to send activation vectors to API from google colab, and then retreive some analysis about them using some returned ID.
-
-analyzer functionality
-- get activations
-- create vectors
-- store activations
-
-
-TODO: API, K8s, front end
 
 
 
@@ -85,28 +65,51 @@ model is loaded properly
 - X run the training data through it
 - X collect the activation vectors
 - find some useful way to display that (in progress)
-- user should be able to send something directly to the API from google colab (get all the activation vectors??)
 - Run diff components on Docker and K8s
 - paginate the API between the backend and the frontend to match what the page size the user is viewing 
 - Add documentation to UI (How-To page)
 - code cleanup
 -later layers likely capture higher level patterns, should experiment with weighting the layers differently when the values are converted to a vector. should be configurable through a parameter
-- change title from NN analyzer to mech interpretability service
-- add informational hover-over buttons on each widget, include what steps would be beneficial ("if this is not expected....")
+- change title from NN analyzer to mech interpretability service / general UI cleanup
+- add informational hover-over buttons on each widget, include what steps would be beneficial ("if this is not expected....", if clusters of diff labels are overlapping, then it is likely....)
 - deploy on AWS
 - security audit, including preventing AWS costs from going too high
 - add demo pictures to github README (this file)
 - logging
 - unit tests
+- are you sure? pop up after clicking reset
 
 - Data visualizations
--similarity: more options than cosine distance (dot product?)
--clustering of similarity, should be able to identify individual records in the graph (show record number and label) (color code clusters by label)
--Comparisons between records that were incorrectly classified --> try to find some pattern that can provide guidance for training
--inference summary does not need to show correctness by record
--can all be on the same page, just scroll down to see the different charts/graphs
--some way to identify common patterns??
--selecting a record number on the similarity pane should display the record 
--add more detail to notifications: Found 1 similar pairs. --> add info about similarity metric used
+
+X -clustering of similarity, should be able to identify individual records in the graph (show record number and label) (color code clusters by label)
+X -Comparisons between records that were incorrectly classified --> try to find some pattern that can provide guidance for training
+X -can all be on the same page, just scroll down to see the different charts/graphs 
+- add more detail to notifications: Found 1 similar pairs. --> add info about similarity metric used
+- add "what to do with this info?" section
+
+- layer-wise analysis (identify where patterns begin to emerge from raw data) and also cross-record comparison (current)
 
 
+In mechanistic interpretability, this cross-record comparison is used for several specific purposes:
+Probing and Concept Discovery: By comparing activations from records that share a common trait (e.g., all images of "stripes") against those that don't, researchers can identify Concept Activation Vectors (CAVs). These vectors represent the human-understandable concept within that layer's high-dimensional space.
+Activation Distribution Analysis: Tools like NeuralDivergence use these distributions as a high-level summary to compare how different classes or instances (such as benign vs. adversarial images) are processed by the network.
+Polysemanticity and SAEs: When training Sparse Autoencoders (SAEs), researchers analyze activations across thousands of different records to "disentangle" neurons that fire for multiple unrelated concepts.
+Superposition Analysis: This involves studying how a model "packs" more concepts (features) into its activation space than it has neurons, which can only be observed by seeing how different records activate the same sets of neurons in different combinations.
+Latent Clustering: Researchers use dimensionality reduction (like t-SNE or UMAP) on these collections of vectors to see if the model naturally clusters similar records, which indicates it has learned to generalize those categories. 
+
+
+Planned Features:
+- sliding bar on Similarity threshold should have 2 points so you can filter for an inclusive range
+- MAX_DISPLAY should be replaced with max result per page. All pages contained within Similar Activation Pairs widget
+- Add filtering option to Similar Activation Pairs widget
+- caching per session to speed up switching between activation vector filtering options
+- optimizations for running inference
+- Cluster Plot hover featuer is broken
+- cluster plot should have filter options for different labels
+- user should be able to send something directly to the API from google colab (get all the activation vectors??)
+- some way to identify common patterns
+- diff pages for indeapth layer-wise analysis of individual records
+- support for regression models 
+- support updating parameters, or activation functions through the UI
+- selecting a record number on the similarity pane should display the record
+- similarity: more options than cosine distance (dot product)

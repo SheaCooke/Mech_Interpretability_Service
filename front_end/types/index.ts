@@ -68,3 +68,5 @@ export const STEP_LABELS: Record<Step, string> = {
 };
 
 export type PredictionFilter = "all" | "correct" | "incorrect";
+
+export type Page = "home" | "instructions" | "interpreting"
