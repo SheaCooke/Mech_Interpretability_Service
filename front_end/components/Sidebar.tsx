@@ -14,6 +14,7 @@ interface Props {
   onDatasetFile: (file: File) => void;
   onRunInference: () => void;
   onFindPairs: () => void;
+  onClusterPlot: () => void;
 }
 
 const stepIdx: Record<Step, number> = {
@@ -28,7 +29,7 @@ export default function Sidebar({
   labelColumn, threshold,
   onLabelColumnChange, onThresholdChange,
   onModelFile, onDatasetFile,
-  onRunInference, onFindPairs,
+  onRunInference, onFindPairs, onClusterPlot,
 }: Props) {
   const idx = stepIdx[step];
 
@@ -113,6 +114,16 @@ export default function Sidebar({
         >
           {loading && step === "analysis" ? "Computing…" : "Find Similar Pairs"}
         </button>
+
+        <button
+          className="btn btn-primary"
+          onClick={onClusterPlot}
+          disabled={step !== "analysis" || loading}
+          style={{ marginTop: 4 }}
+        >
+          {loading ? "Computing…" : "Generate Cluster Plot"}
+        </button>
+
       </section>
 
     </div>

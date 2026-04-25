@@ -53,7 +53,43 @@ class Vector_Analyzer:
 
     #TODO: create a version of find_all_similar_pairs that uses a percentiles to find similarity, rather than absolute measurements
         
+    def get_cluster_plot_data(self) -> dict:
+        """
+        Reduces activation vectors to 2D using UMAP (preferred) or t-SNE fallback,
+        then returns plot-ready data points with labels and record IDs.
+        """
+        from sklearn.preprocessing import StandardScaler
 
+        # Normalise before dimensionality reduction
+        scaled = StandardScaler().fit_transform(self.activation_matrix)
+
+        try:
+            import umap
+            reducer = umap.UMAP(n_components=2, random_state=42, metric='cosine')
+            coords  = reducer.fit_transform(scaled)
+            method  = 'UMAP'
+        except ImportError:
+            from sklearn.manifold import TSNE
+            reducer = TSNE(n_components=2, random_state=42,
+                        metric='cosine', init='pca', perplexity=min(30, len(scaled) - 1))
+            coords  = reducer.fit_transform(scaled)
+            method  = 't-SNE'
+
+        points = []
+        for i, record in enumerate(self.inference_results):
+            points.append({
+                'id':        self.id_map[i],
+                'x':         float(coords[i, 0]),
+                'y':         float(coords[i, 1]),
+                'label':     record.get('label'),
+                'predicted': record.get('predicted'),
+                'correct':   record.get('correct'),
+            })
+
+        return {
+            'method': method,
+            'points': points,
+        }
     
 
         

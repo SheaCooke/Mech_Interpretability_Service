@@ -308,3 +308,31 @@ def delete_session(session_id: str):
         os.unlink(tmp)
     del sessions[session_id]
     return {"deleted": session_id}
+
+
+@app.post("/analysis/cluster-plot")
+def cluster_plot(body: dict):
+    """
+    Reduces all activation vectors to 2D and returns plot-ready
+    coordinates with labels and record IDs for the frontend to render.
+    """
+    session_id = body.get("session_id")
+    session = _require_session(session_id)
+
+    if session["vector_analyzer"] is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No inference results available. Run inference first."
+        )
+
+    analyzer: "Vector_Analyzer" = session["vector_analyzer"]
+
+    try:
+        plot_data = analyzer.get_cluster_plot_data()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clustering failed: {str(e)}")
+
+    return _numpy_safe({
+        "session_id": session_id,
+        **plot_data,
+    })

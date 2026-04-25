@@ -55,3 +55,28 @@ export async function fetchSimilarPairs(
 export async function deleteSession(sessionId: string): Promise<void> {
   await apiFetch(`/session/${sessionId}`, { method: "DELETE" });
 }
+
+
+export interface ClusterPoint {
+  id: string;
+  x: number;
+  y: number;
+  label: number | null;
+  predicted: number;
+  correct: boolean;
+}
+
+export interface ClusterPlotData {
+  method: string;
+  points: ClusterPoint[];
+}
+
+export async function fetchClusterPlot(
+  sessionId: string
+): Promise<ClusterPlotData> {
+  return apiFetch("/analysis/cluster-plot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+}

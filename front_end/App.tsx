@@ -15,6 +15,9 @@ import StatusBar    from "./components/StatusBar";
 import ModelInfo    from "./components/ModelInfo";
 import SummaryPanel from "./components/SummaryPanel";
 import PairsPanel   from "./components/PairsPanel";
+import { fetchClusterPlot } from "./api/client";
+import type { ClusterPlotData } from "./api/client";
+import ClusterPlot from "./components/ClusterPlot";
 
 export default function App() {
   const [sessionId,   setSessionId]   = useState<string | null>(null);
@@ -27,6 +30,7 @@ export default function App() {
   const [status,      setStatus]      = useState<StatusMessage | null>(null);
   const [labelColumn, setLabelColumn] = useState("");
   const [threshold,   setThreshold]   = useState(0.1);
+  const [clusterData, setClusterData] = useState<ClusterPlotData | null>(null);
 
   function setErr(msg: string) { setStatus({ msg, type: "error"   }); setLoading(false); }
   function setOk (msg: string) { setStatus({ msg, type: "success" }); setLoading(false); }
@@ -86,6 +90,18 @@ export default function App() {
     setSessionId(null); setModelData(null); setDatasetMeta(null);
     setSummary(null); setPairs(null);
     setStep("upload-model"); setStatus(null);
+    setClusterData(null);
+  }
+
+  async function handleClusterPlot() {
+    if (!sessionId) return;
+    setLoading(true);
+    setStatus({ msg: "Reducing dimensions for cluster plot…", type: "info" });
+    try {
+      const res = await fetchClusterPlot(sessionId);
+      setClusterData(res);
+      setOk(`Cluster plot ready — ${res.points.length} points via ${res.method}.`);
+    } catch (e: any) { setErr(e.message); }
   }
 
   return (
@@ -99,12 +115,15 @@ export default function App() {
             datasetMeta={datasetMeta} labelColumn={labelColumn} threshold={threshold}
             onLabelColumnChange={setLabelColumn} onThresholdChange={setThreshold}
             onModelFile={handleModelFile} onDatasetFile={handleDatasetFile}
-            onRunInference={handleRunInference} onFindPairs={handleFindPairs}
+            onRunInference={handleRunInference} onFindPairs={handleFindPairs} onClusterPlot={handleClusterPlot}
           />
           <div className="col-right">
             {modelData && <ModelInfo data={modelData} />}
             {summary   && <SummaryPanel summary={summary} />}
             {pairs     && <PairsPanel pairs={pairs} />}
+            {clusterData && (
+              <ClusterPlot points={clusterData.points} method={clusterData.method} />
+            )}
             {!modelData && (
               <div className="empty-state">
                 <Cpu size={48} strokeWidth={1} />

@@ -105,5 +105,6 @@ model is loaded properly
 -can all be on the same page, just scroll down to see the different charts/graphs
 -some way to identify common patterns??
 -selecting a record number on the similarity pane should display the record 
+-add more detail to notifications: Found 1 similar pairs. --> add info about similarity metric used
 
 
