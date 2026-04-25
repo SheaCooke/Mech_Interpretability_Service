@@ -66,3 +66,5 @@ export const STEP_LABELS: Record<Step, string> = {
   "inference":      "Inference",
   "analysis":       "Analysis",
 };
+
+export type PredictionFilter = "all" | "correct" | "incorrect";

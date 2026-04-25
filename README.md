@@ -84,7 +84,7 @@ npm run build
 model is loaded properly
 - X run the training data through it
 - X collect the activation vectors
-- find some useful way to display that
+- find some useful way to display that (in progress)
 - user should be able to send something directly to the API from google colab (get all the activation vectors??)
 - Run diff components on Docker and K8s
 - paginate the API between the backend and the frontend to match what the page size the user is viewing 
@@ -96,6 +96,8 @@ model is loaded properly
 - deploy on AWS
 - security audit, including preventing AWS costs from going too high
 - add demo pictures to github README (this file)
+- logging
+- unit tests
 
 - Data visualizations
 -similarity: more options than cosine distance (dot product?)

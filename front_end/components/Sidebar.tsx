@@ -1,5 +1,5 @@
 import DropZone from "./DropZone";
-import type { Step, DatasetMeta } from "../types";
+import type { Step, DatasetMeta, PredictionFilter  } from "../types";
 
 interface Props {
   step: Step;
@@ -8,8 +8,10 @@ interface Props {
   datasetMeta: DatasetMeta | null;
   labelColumn: string;
   threshold: number;
+  predictionFilter: PredictionFilter;
   onLabelColumnChange: (val: string) => void;
   onThresholdChange: (val: number) => void;
+  onPredictionFilterChange: (val: PredictionFilter) => void;
   onModelFile: (file: File) => void;
   onDatasetFile: (file: File) => void;
   onRunInference: () => void;
@@ -26,8 +28,8 @@ const stepIdx: Record<Step, number> = {
 
 export default function Sidebar({
   step, loading, sessionId, datasetMeta,
-  labelColumn, threshold,
-  onLabelColumnChange, onThresholdChange,
+  labelColumn, threshold, predictionFilter,
+  onLabelColumnChange, onThresholdChange, onPredictionFilterChange,
   onModelFile, onDatasetFile,
   onRunInference, onFindPairs, onClusterPlot,
 }: Props) {
@@ -92,11 +94,30 @@ export default function Sidebar({
       {/* Step 4 – Analysis */}
       <section className={`card ${idx < 3 ? "card-locked" : ""}`}>
         <h2 className="card-title">
-          <span className="card-num">04</span> Similar Activations
+          <span className="card-num">04</span> Analysis
         </h2>
+
+        {/* Filter dropdown — applies to all analysis below */}
+        <div className="filter-row">
+          <label className="filter-label">Prediction filter</label>
+          <select
+            className="filter-select"
+            value={predictionFilter}
+            onChange={(e) =>
+              onPredictionFilterChange(e.target.value as PredictionFilter)
+            }
+            disabled={step !== "analysis" || loading}
+          >
+            <option value="all">All predictions</option>
+            <option value="correct">Correct only</option>
+            <option value="incorrect">Incorrect only</option>
+          </select>
+        </div>
+
+        {/* Threshold slider */}
         <div className="threshold-row">
           <label className="threshold-label">
-            Threshold{" "}
+            Similarity threshold{" "}
             <span className="threshold-val">{threshold.toFixed(2)}</span>
           </label>
           <input
@@ -107,12 +128,13 @@ export default function Sidebar({
             className="slider"
           />
         </div>
+
         <button
           className="btn btn-primary"
           onClick={onFindPairs}
           disabled={step !== "analysis" || loading}
         >
-          {loading && step === "analysis" ? "Computing…" : "Find Similar Pairs"}
+          {loading ? "Computing…" : "Find Similar Pairs"}
         </button>
 
         <button
@@ -123,9 +145,7 @@ export default function Sidebar({
         >
           {loading ? "Computing…" : "Generate Cluster Plot"}
         </button>
-
       </section>
-
     </div>
   );
 }

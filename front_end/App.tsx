@@ -3,34 +3,34 @@ import { Cpu } from "lucide-react";
 import "./styles/global.css";
 import {
   uploadModel, uploadDataset, runInference,
-  fetchSimilarPairs, deleteSession,
+  fetchSimilarPairs, fetchClusterPlot, deleteSession,
 } from "./api/client";
 import type {
   ModelData, InferenceSummary, SimilarPair,
-  DatasetMeta, StatusMessage, Step,
+  DatasetMeta, StatusMessage, Step, PredictionFilter,
 } from "./types";
+import type { ClusterPlotData } from "./api/client";
 import Header       from "./components/Header";
 import Sidebar      from "./components/Sidebar";
 import StatusBar    from "./components/StatusBar";
 import ModelInfo    from "./components/ModelInfo";
 import SummaryPanel from "./components/SummaryPanel";
 import PairsPanel   from "./components/PairsPanel";
-import { fetchClusterPlot } from "./api/client";
-import type { ClusterPlotData } from "./api/client";
-import ClusterPlot from "./components/ClusterPlot";
+import ClusterPlot  from "./components/ClusterPlot";
 
 export default function App() {
-  const [sessionId,   setSessionId]   = useState<string | null>(null);
-  const [modelData,   setModelData]   = useState<ModelData | null>(null);
-  const [datasetMeta, setDatasetMeta] = useState<DatasetMeta | null>(null);
-  const [summary,     setSummary]     = useState<InferenceSummary | null>(null);
-  const [pairs,       setPairs]       = useState<SimilarPair[] | null>(null);
-  const [step,        setStep]        = useState<Step>("upload-model");
-  const [loading,     setLoading]     = useState(false);
-  const [status,      setStatus]      = useState<StatusMessage | null>(null);
-  const [labelColumn, setLabelColumn] = useState("");
-  const [threshold,   setThreshold]   = useState(0.1);
-  const [clusterData, setClusterData] = useState<ClusterPlotData | null>(null);
+  const [sessionId,        setSessionId]        = useState<string | null>(null);
+  const [modelData,        setModelData]        = useState<ModelData | null>(null);
+  const [datasetMeta,      setDatasetMeta]      = useState<DatasetMeta | null>(null);
+  const [summary,          setSummary]          = useState<InferenceSummary | null>(null);
+  const [pairs,            setPairs]            = useState<SimilarPair[] | null>(null);
+  const [clusterData,      setClusterData]      = useState<ClusterPlotData | null>(null);
+  const [step,             setStep]             = useState<Step>("upload-model");
+  const [loading,          setLoading]          = useState(false);
+  const [status,           setStatus]           = useState<StatusMessage | null>(null);
+  const [labelColumn,      setLabelColumn]      = useState("");
+  const [threshold,        setThreshold]        = useState(0.1);
+  const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
 
   function setErr(msg: string) { setStatus({ msg, type: "error"   }); setLoading(false); }
   function setOk (msg: string) { setStatus({ msg, type: "success" }); setLoading(false); }
@@ -64,6 +64,7 @@ export default function App() {
     setLoading(true);
     setSummary(null);
     setPairs(null);
+    setClusterData(null);
     setStatus({ msg: "Running inference…", type: "info" });
     try {
       const res = await runInference(sessionId);
@@ -77,31 +78,32 @@ export default function App() {
     if (!sessionId) return;
     setLoading(true);
     setPairs(null);
-    setStatus({ msg: "Computing cosine distances…", type: "info" });
+    setStatus({ msg: `Computing similar pairs (${predictionFilter})…`, type: "info" });
     try {
-      const res = await fetchSimilarPairs(sessionId, threshold);
+      const res = await fetchSimilarPairs(sessionId, threshold, predictionFilter);
       setPairs(res.pairs);
-      setOk(`Found ${res.num_pairs} similar pairs.`);
+      setOk(`Found ${res.num_pairs} similar pairs (${predictionFilter}).`);
+    } catch (e: any) { setErr(e.message); }
+  }
+
+  async function handleClusterPlot() {
+    if (!sessionId) return;
+    setLoading(true);
+    setClusterData(null);
+    setStatus({ msg: `Reducing dimensions (${predictionFilter})…`, type: "info" });
+    try {
+      const res = await fetchClusterPlot(sessionId, predictionFilter);
+      setClusterData(res);
+      setOk(`Cluster plot ready — ${res.points.length} points via ${res.method}.`);
     } catch (e: any) { setErr(e.message); }
   }
 
   async function handleReset() {
     if (sessionId) await deleteSession(sessionId).catch(() => {});
     setSessionId(null); setModelData(null); setDatasetMeta(null);
-    setSummary(null); setPairs(null);
+    setSummary(null); setPairs(null); setClusterData(null);
     setStep("upload-model"); setStatus(null);
-    setClusterData(null);
-  }
-
-  async function handleClusterPlot() {
-    if (!sessionId) return;
-    setLoading(true);
-    setStatus({ msg: "Reducing dimensions for cluster plot…", type: "info" });
-    try {
-      const res = await fetchClusterPlot(sessionId);
-      setClusterData(res);
-      setOk(`Cluster plot ready — ${res.points.length} points via ${res.method}.`);
-    } catch (e: any) { setErr(e.message); }
+    setPredictionFilter("all");
   }
 
   return (
@@ -112,17 +114,26 @@ export default function App() {
         <div className="columns">
           <Sidebar
             step={step} loading={loading} sessionId={sessionId}
-            datasetMeta={datasetMeta} labelColumn={labelColumn} threshold={threshold}
-            onLabelColumnChange={setLabelColumn} onThresholdChange={setThreshold}
-            onModelFile={handleModelFile} onDatasetFile={handleDatasetFile}
-            onRunInference={handleRunInference} onFindPairs={handleFindPairs} onClusterPlot={handleClusterPlot}
+            datasetMeta={datasetMeta} labelColumn={labelColumn}
+            threshold={threshold} predictionFilter={predictionFilter}
+            onLabelColumnChange={setLabelColumn}
+            onThresholdChange={setThreshold}
+            onPredictionFilterChange={setPredictionFilter}
+            onModelFile={handleModelFile}
+            onDatasetFile={handleDatasetFile}
+            onRunInference={handleRunInference}
+            onFindPairs={handleFindPairs}
+            onClusterPlot={handleClusterPlot}
           />
           <div className="col-right">
-            {modelData && <ModelInfo data={modelData} />}
-            {summary   && <SummaryPanel summary={summary} />}
-            {pairs     && <PairsPanel pairs={pairs} />}
-            {clusterData && (
-              <ClusterPlot points={clusterData.points} method={clusterData.method} />
+            {modelData    && <ModelInfo data={modelData} />}
+            {summary      && <SummaryPanel summary={summary} />}
+            {pairs        && <PairsPanel pairs={pairs} />}
+            {clusterData  && (
+              <ClusterPlot
+                points={clusterData.points}
+                method={clusterData.method}
+              />
             )}
             {!modelData && (
               <div className="empty-state">

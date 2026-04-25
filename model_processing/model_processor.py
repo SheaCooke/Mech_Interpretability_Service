@@ -414,7 +414,7 @@ class Model_Processor:
         
         print(f'first test record: {records[0]}') #TODO: remove
 
-        return records[:10] #TODO: remove after initial testing
+        return records[:100] #TODO: remove after initial testing
 
     # -------------------------
     # Full Pipeline

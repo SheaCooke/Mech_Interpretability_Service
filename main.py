@@ -7,11 +7,9 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from model_processing.vector_analyzer import Vector_Analyzer
+from model_processing.model_processor import Model_Processor
 
-# --- Import your existing classes ---
-# from model_processor.model_processor import Model_Processor
-# from vector_analyzer import Vector_Analyzer
-# For now we assume they are importable from the same directory or PYTHONPATH.
 
 app = FastAPI(title="Neural Network Analyzer API", version="1.0.0")
 
@@ -41,6 +39,7 @@ SUPPORTED_DATASET_EXTENSIONS = {"csv", "npz"}
 class SimilarPairsRequest(BaseModel):
     session_id: str
     threshold: float = 0.1
+    filter: str = "all"  # "all" | "correct" | "incorrect"
 
 
 class InferenceRequest(BaseModel):
@@ -52,6 +51,13 @@ class InferenceRequest(BaseModel):
 # -------------------------------------------------------
 # Helpers
 # -------------------------------------------------------
+
+def _apply_filter(results: list[dict], filter: str) -> list[dict]:
+    if filter == "correct":
+        return [r for r in results if r.get("correct") is True]
+    if filter == "incorrect":
+        return [r for r in results if r.get("correct") is False]
+    return results
 
 def _ext(filename: str) -> str:
     return filename.rsplit(".", 1)[-1].lower()
@@ -110,9 +116,6 @@ async def upload_model(file: UploadFile = File(...)):
         tmp.write(contents)
         tmp.flush()
         tmp.close()
-
-        # Lazy import so the server starts even if ML deps aren't installed
-        from model_processing.model_processor import Model_Processor
 
         processor = Model_Processor(tmp.name)
     except Exception as e:
@@ -214,7 +217,6 @@ def run_inference(body: InferenceRequest):
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
     # Build Vector_Analyzer immediately so distance matrix is ready
-    from model_processing.vector_analyzer import Vector_Analyzer
     analyzer = Vector_Analyzer(results)
 
     session["inference_results"] = results
@@ -266,15 +268,17 @@ def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
 
 @app.post("/analysis/similar-pairs")
 def similar_pairs(body: SimilarPairsRequest):
-    """
-    Returns all record pairs whose cosine distance is below `threshold`.
-    """
     session = _require_session(body.session_id)
-
     if session["vector_analyzer"] is None:
-        raise HTTPException(status_code=400, detail="No inference results available. Run inference first.")
+        raise HTTPException(status_code=400, detail="No inference results available.")
 
-    analyzer: "Vector_Analyzer" = session["vector_analyzer"]
+    # Apply filter before building a temporary analyzer
+    
+    filtered = _apply_filter(session["inference_results"], body.filter)
+    if not filtered:
+        raise HTTPException(status_code=400, detail=f"No records match filter '{body.filter}'.")
+
+    analyzer = Vector_Analyzer(filtered)
 
     try:
         pairs = analyzer.find_all_similar_pairs(threshold=body.threshold)
@@ -284,6 +288,7 @@ def similar_pairs(body: SimilarPairsRequest):
     return {
         "session_id": body.session_id,
         "threshold": body.threshold,
+        "filter": body.filter,
         "num_pairs": len(pairs),
         "pairs": _numpy_safe(pairs),
     }
@@ -312,20 +317,18 @@ def delete_session(session_id: str):
 
 @app.post("/analysis/cluster-plot")
 def cluster_plot(body: dict):
-    """
-    Reduces all activation vectors to 2D and returns plot-ready
-    coordinates with labels and record IDs for the frontend to render.
-    """
     session_id = body.get("session_id")
+    filter_val = body.get("filter", "all")
     session = _require_session(session_id)
 
-    if session["vector_analyzer"] is None:
-        raise HTTPException(
-            status_code=400,
-            detail="No inference results available. Run inference first."
-        )
+    if session["inference_results"] is None:
+        raise HTTPException(status_code=400, detail="No inference results available.")
 
-    analyzer: "Vector_Analyzer" = session["vector_analyzer"]
+    filtered = _apply_filter(session["inference_results"], filter_val)
+    if not filtered:
+        raise HTTPException(status_code=400, detail=f"No records match filter '{filter_val}'.")
+
+    analyzer = Vector_Analyzer(filtered)
 
     try:
         plot_data = analyzer.get_cluster_plot_data()
@@ -334,5 +337,6 @@ def cluster_plot(body: dict):
 
     return _numpy_safe({
         "session_id": session_id,
+        "filter": filter_val,
         **plot_data,
     })
