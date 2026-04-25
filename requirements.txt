@@ -17,3 +17,9 @@ tf2onnx>=1.16
 
 torch>=2.1
 torchvision>=0.16
+
+fastapi
+pydantic
+uvicorn
+python-multipart
+umap-learn>=0.5.5
