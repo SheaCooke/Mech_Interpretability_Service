@@ -79,7 +79,31 @@ npm run build
 
 
 --------------
+(currently only supports classification models, no user accounts or storing data for now)
+
 model is loaded properly
-- run the training data through it
-- collect the activation vectors
+- X run the training data through it
+- X collect the activation vectors
 - find some useful way to display that
+- user should be able to send something directly to the API from google colab (get all the activation vectors??)
+- Run diff components on Docker and K8s
+- paginate the API between the backend and the frontend to match what the page size the user is viewing 
+- Add documentation to UI (How-To page)
+- code cleanup
+-later layers likely capture higher level patterns, should experiment with weighting the layers differently when the values are converted to a vector. should be configurable through a parameter
+- change title from NN analyzer to mech interpretability service
+- add informational hover-over buttons on each widget, include what steps would be beneficial ("if this is not expected....")
+- deploy on AWS
+- security audit, including preventing AWS costs from going too high
+- add demo pictures to github README (this file)
+
+- Data visualizations
+-similarity: more options than cosine distance (dot product?)
+-clustering of similarity, should be able to identify individual records in the graph (show record number and label) (color code clusters by label)
+-Comparisons between records that were incorrectly classified --> try to find some pattern that can provide guidance for training
+-inference summary does not need to show correctness by record
+-can all be on the same page, just scroll down to see the different charts/graphs
+-some way to identify common patterns??
+-selecting a record number on the similarity pane should display the record 
+
+
