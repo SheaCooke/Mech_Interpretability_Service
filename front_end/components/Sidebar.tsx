@@ -1,5 +1,5 @@
 import DropZone from "./DropZone";
-import type { Step, DatasetMeta } from "../types";
+import type { Step, DatasetMeta, PredictionFilter  } from "../types";
 
 interface Props {
   step: Step;
@@ -8,8 +8,10 @@ interface Props {
   datasetMeta: DatasetMeta | null;
   labelColumn: string;
   threshold: number;
+  predictionFilter: PredictionFilter;
   onLabelColumnChange: (val: string) => void;
   onThresholdChange: (val: number) => void;
+  onPredictionFilterChange: (val: PredictionFilter) => void;
   onModelFile: (file: File) => void;
   onDatasetFile: (file: File) => void;
   onRunInference: () => void;
@@ -26,12 +28,13 @@ const stepIdx: Record<Step, number> = {
 
 export default function Sidebar({
   step, loading, sessionId, datasetMeta,
-  labelColumn, threshold,
-  onLabelColumnChange, onThresholdChange,
+  labelColumn, threshold, predictionFilter,
+  onLabelColumnChange, onThresholdChange, onPredictionFilterChange,
   onModelFile, onDatasetFile,
   onRunInference, onFindPairs, onClusterPlot,
 }: Props) {
   const idx = stepIdx[step];
+  const analysisLocked = idx < 3;
 
   return (
     <div className="col-left">
@@ -89,30 +92,50 @@ export default function Sidebar({
         </button>
       </section>
 
-      {/* Step 4 – Analysis */}
-      <section className={`card ${idx < 3 ? "card-locked" : ""}`}>
+      {/* Step 4a – General Analysis */}
+      <section className={`card ${analysisLocked ? "card-locked" : ""}`}>
         <h2 className="card-title">
-          <span className="card-num">04</span> Similar Activations
+          <span className="card-num">04</span> General Analysis
         </h2>
+
+        {/* Filter dropdown — applies to all analysis below */}
+        <div className="filter-row">
+          <label className="filter-label">Prediction filter</label>
+          <select
+            className="filter-select"
+            value={predictionFilter}
+            onChange={(e) =>
+              onPredictionFilterChange(e.target.value as PredictionFilter)
+            }
+            disabled={step !== "analysis" || loading}
+          >
+            <option value="all">All predictions</option>
+            <option value="correct">Correct only</option>
+            <option value="incorrect">Incorrect only</option>
+          </select>
+        </div>
+
+        {/* Threshold slider */}
         <div className="threshold-row">
           <label className="threshold-label">
-            Threshold{" "}
+            Similarity threshold (cosine distance){" "}
             <span className="threshold-val">{threshold.toFixed(2)}</span>
           </label>
           <input
-            type="range" min={0.01} max={0.5} step={0.01}
+            type="range" min={0.00} max={1.0} step={0.01}
             value={threshold}
             onChange={(e) => onThresholdChange(parseFloat(e.target.value))}
             disabled={step !== "analysis" || loading}
             className="slider"
           />
         </div>
+
         <button
           className="btn btn-primary"
           onClick={onFindPairs}
           disabled={step !== "analysis" || loading}
         >
-          {loading && step === "analysis" ? "Computing…" : "Find Similar Pairs"}
+          {loading ? "Computing…" : "Find Similar Pairs"}
         </button>
 
         <button
@@ -123,7 +146,17 @@ export default function Sidebar({
         >
           {loading ? "Computing…" : "Generate Cluster Plot"}
         </button>
+      </section>
 
+      {/* Step 4b – Layer-wise Analysis */}
+      <section className={`card ${analysisLocked ? "card-locked" : ""}`}>
+        <h2 className="card-title">
+          <span className="card-num">04b</span> Layer-Wise Analysis
+        </h2>
+        <p className="sidebar-section-desc">
+          Select an incorrectly classified record in the panel on the right to
+          compare its per-layer activations against the class prototypes.
+        </p>
       </section>
 
     </div>

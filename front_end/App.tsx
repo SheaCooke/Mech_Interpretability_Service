@@ -3,34 +3,46 @@ import { Cpu } from "lucide-react";
 import "./styles/global.css";
 import {
   uploadModel, uploadDataset, runInference,
-  fetchSimilarPairs, deleteSession,
+  fetchSimilarPairs, fetchClusterPlot, deleteSession,
+  LayerDeviationData, IncorrectRecord, fetchLayerDeviation,
+  fetchIncorrectRecords,
 } from "./api/client";
 import type {
   ModelData, InferenceSummary, SimilarPair,
-  DatasetMeta, StatusMessage, Step,
+  DatasetMeta, StatusMessage, Step, PredictionFilter, Page,
 } from "./types";
+import type { ClusterPlotData } from "./api/client";
 import Header       from "./components/Header";
 import Sidebar      from "./components/Sidebar";
 import StatusBar    from "./components/StatusBar";
 import ModelInfo    from "./components/ModelInfo";
 import SummaryPanel from "./components/SummaryPanel";
 import PairsPanel   from "./components/PairsPanel";
-import { fetchClusterPlot } from "./api/client";
-import type { ClusterPlotData } from "./api/client";
-import ClusterPlot from "./components/ClusterPlot";
+import ClusterPlot  from "./components/ClusterPlot";
+import InstructionsPage from "./pages/InstructionsPage";
+import InterpretingPage from "./pages/InterpretingPage";
+import LayerDeviationPlot  from "./components/LayerDeviationPlot";
 
 export default function App() {
-  const [sessionId,   setSessionId]   = useState<string | null>(null);
-  const [modelData,   setModelData]   = useState<ModelData | null>(null);
-  const [datasetMeta, setDatasetMeta] = useState<DatasetMeta | null>(null);
-  const [summary,     setSummary]     = useState<InferenceSummary | null>(null);
-  const [pairs,       setPairs]       = useState<SimilarPair[] | null>(null);
-  const [step,        setStep]        = useState<Step>("upload-model");
-  const [loading,     setLoading]     = useState(false);
-  const [status,      setStatus]      = useState<StatusMessage | null>(null);
-  const [labelColumn, setLabelColumn] = useState("");
-  const [threshold,   setThreshold]   = useState(0.1);
-  const [clusterData, setClusterData] = useState<ClusterPlotData | null>(null);
+    // ── Page routing ──────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<Page>("home");
+
+  const [sessionId,        setSessionId]        = useState<string | null>(null);
+  const [modelData,        setModelData]        = useState<ModelData | null>(null);
+  const [datasetMeta,      setDatasetMeta]      = useState<DatasetMeta | null>(null);
+  const [summary,          setSummary]          = useState<InferenceSummary | null>(null);
+  const [pairs,            setPairs]            = useState<SimilarPair[] | null>(null);
+  const [clusterData,      setClusterData]      = useState<ClusterPlotData | null>(null);
+  const [step,             setStep]             = useState<Step>("upload-model");
+  const [loading,          setLoading]          = useState(false);
+  const [status,           setStatus]           = useState<StatusMessage | null>(null);
+  const [labelColumn,      setLabelColumn]      = useState("");
+  const [threshold,        setThreshold]        = useState(0.1);
+  const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
+    // ── Layer-wise analysis state ─────────────────────────────────────────────
+  const [incorrectRecords,  setIncorrectRecords]  = useState<IncorrectRecord[]>([]);
+  const [deviationData,     setDeviationData]     = useState<LayerDeviationData | null>(null);
+  const [deviationLoading,  setDeviationLoading]  = useState(false);
 
   function setErr(msg: string) { setStatus({ msg, type: "error"   }); setLoading(false); }
   function setOk (msg: string) { setStatus({ msg, type: "success" }); setLoading(false); }
@@ -64,11 +76,19 @@ export default function App() {
     setLoading(true);
     setSummary(null);
     setPairs(null);
+    setIncorrectRecords([]);
+    setClusterData(null);
     setStatus({ msg: "Running inference…", type: "info" });
     try {
       const res = await runInference(sessionId);
       setSummary(res.summary);
       setStep("analysis");
+
+      // Immediately fetch incorrect records for layer-wise panel
+      const inc = await fetchIncorrectRecords(sessionId);
+      setIncorrectRecords(inc.records);
+
+
       setOk("Inference complete.");
     } catch (e: any) { setErr(e.message); }
   }
@@ -77,62 +97,134 @@ export default function App() {
     if (!sessionId) return;
     setLoading(true);
     setPairs(null);
-    setStatus({ msg: "Computing cosine distances…", type: "info" });
+    setStatus({ msg: `Computing similar pairs (${predictionFilter})…`, type: "info" });
     try {
-      const res = await fetchSimilarPairs(sessionId, threshold);
+      const res = await fetchSimilarPairs(sessionId, threshold, predictionFilter);
       setPairs(res.pairs);
-      setOk(`Found ${res.num_pairs} similar pairs.`);
+      setOk(`Found ${res.num_pairs} similar pairs (${predictionFilter}).`);
     } catch (e: any) { setErr(e.message); }
-  }
-
-  async function handleReset() {
-    if (sessionId) await deleteSession(sessionId).catch(() => {});
-    setSessionId(null); setModelData(null); setDatasetMeta(null);
-    setSummary(null); setPairs(null);
-    setStep("upload-model"); setStatus(null);
-    setClusterData(null);
   }
 
   async function handleClusterPlot() {
     if (!sessionId) return;
     setLoading(true);
-    setStatus({ msg: "Reducing dimensions for cluster plot…", type: "info" });
+    setClusterData(null);
+    setStatus({ msg: `Reducing dimensions (${predictionFilter})…`, type: "info" });
     try {
-      const res = await fetchClusterPlot(sessionId);
+      const res = await fetchClusterPlot(sessionId, predictionFilter);
       setClusterData(res);
       setOk(`Cluster plot ready — ${res.points.length} points via ${res.method}.`);
     } catch (e: any) { setErr(e.message); }
   }
 
+
+    async function handleRecordSelect(recordId: string) {
+    if (!sessionId) return;
+    setDeviationLoading(true);
+    setDeviationData(null);
+    try {
+      const res = await fetchLayerDeviation(sessionId, recordId);
+      setDeviationData(res);
+    } catch (e: any) {
+      setStatus({ msg: e.message, type: "error" });
+    } finally {
+      setDeviationLoading(false);
+    }
+  }
+
+  async function handleReset() {
+    if (sessionId) await deleteSession(sessionId).catch(() => {});
+    setSessionId(null); setModelData(null); setDatasetMeta(null);
+    setSummary(null); setPairs(null); setClusterData(null);
+    setIncorrectRecords([]); setDeviationData(null);
+    setStep("upload-model"); setStatus(null);
+    setPredictionFilter("all");
+  }
+  const showAnalysis = step === "analysis";
+
   return (
     <div className="app">
-      <Header step={step} sessionId={sessionId} onReset={handleReset} />
+      <Header
+        step={step}
+        sessionId={sessionId}
+        currentPage={currentPage}
+        onNavigate={setCurrentPage}
+        onReset={handleReset}
+      />
+            {/* Instructions page */}
+      {currentPage === "instructions" && <InstructionsPage />}
+ 
+      {/* Interpreting results page */}
+      {currentPage === "interpreting" && <InterpretingPage />}
+
+      {/* Home page */}
+      {currentPage === "home" && (
       <main className="main">
         {status && <StatusBar {...status} />}
         <div className="columns">
           <Sidebar
             step={step} loading={loading} sessionId={sessionId}
-            datasetMeta={datasetMeta} labelColumn={labelColumn} threshold={threshold}
-            onLabelColumnChange={setLabelColumn} onThresholdChange={setThreshold}
-            onModelFile={handleModelFile} onDatasetFile={handleDatasetFile}
-            onRunInference={handleRunInference} onFindPairs={handleFindPairs} onClusterPlot={handleClusterPlot}
+            datasetMeta={datasetMeta} labelColumn={labelColumn}
+            threshold={threshold} predictionFilter={predictionFilter}
+            onLabelColumnChange={setLabelColumn}
+            onThresholdChange={setThreshold}
+            onPredictionFilterChange={setPredictionFilter}
+            onModelFile={handleModelFile}
+            onDatasetFile={handleDatasetFile}
+            onRunInference={handleRunInference}
+            onFindPairs={handleFindPairs}
+            onClusterPlot={handleClusterPlot}
           />
           <div className="col-right">
-            {modelData && <ModelInfo data={modelData} />}
-            {summary   && <SummaryPanel summary={summary} />}
-            {pairs     && <PairsPanel pairs={pairs} />}
-            {clusterData && (
-              <ClusterPlot points={clusterData.points} method={clusterData.method} />
-            )}
+              {/* Always-visible model info */}
+              {modelData && <ModelInfo data={modelData} />}
+ 
+              {/* Inference summary */}
+              {summary && <SummaryPanel summary={summary} />}
+ 
+              {/* ── General Analysis ── */}
+              {showAnalysis && (
+                <div className="analysis-section">
+                  <h2 className="analysis-section-title">General Analysis</h2>
+                  {pairs && <PairsPanel pairs={pairs} />}
+                  {clusterData  && (
+                    <ClusterPlot
+                      points={clusterData.points}
+                      method={clusterData.method}
+                    />
+                  )}
+                </div>
+              )}
+ 
+              {/* ── Layer-wise Analysis ── */}
+              {showAnalysis && (
+                <div className="analysis-section">
+                  <h2 className="analysis-section-title">Layer-Wise Analysis</h2>
+                  {incorrectRecords.length === 0 ? (
+                    <div className="analysis-section-empty">
+                      No incorrectly classified records found
+                    </div>
+                  ) : (
+                    <LayerDeviationPlot
+                      sessionId={sessionId ?? ""}
+                      incorrectRecords={incorrectRecords}
+                      onRecordSelect={handleRecordSelect}
+                      deviationData={deviationData}
+                      loading={deviationLoading}
+                    />
+                  )}
+            </div>
+              )}
             {!modelData && (
-              <div className="empty-state">
-                <Cpu size={48} strokeWidth={1} />
-                <p>Upload a model to begin.</p>
-              </div>
+                  <div className="empty-state">
+                    <Cpu size={48} strokeWidth={1} />
+                    <p>Upload a model to begin.</p>
+                  </div>
             )}
           </div>
         </div>
       </main>
+      )}
     </div>
   );
 }

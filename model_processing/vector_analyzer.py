@@ -1,6 +1,9 @@
 
 import numpy as np
 from scipy.spatial.distance import cdist
+import umap
+from sklearn.manifold import TSNE
+from sklearn.preprocessing import StandardScaler
 
 class Vector_Analyzer:
     def __init__(self, inference_results: list[dict]):
@@ -58,18 +61,16 @@ class Vector_Analyzer:
         Reduces activation vectors to 2D using UMAP (preferred) or t-SNE fallback,
         then returns plot-ready data points with labels and record IDs.
         """
-        from sklearn.preprocessing import StandardScaler
 
         # Normalise before dimensionality reduction
         scaled = StandardScaler().fit_transform(self.activation_matrix)
 
-        try:
-            import umap
+        try:    
             reducer = umap.UMAP(n_components=2, random_state=42, metric='cosine')
             coords  = reducer.fit_transform(scaled)
             method  = 'UMAP'
         except ImportError:
-            from sklearn.manifold import TSNE
+            print('---- import error ----')
             reducer = TSNE(n_components=2, random_state=42,
                         metric='cosine', init='pca', perplexity=min(30, len(scaled) - 1))
             coords  = reducer.fit_transform(scaled)
