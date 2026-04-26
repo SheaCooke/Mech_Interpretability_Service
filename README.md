@@ -111,3 +111,15 @@ This is directly actionable for training. If most misclassifications show diverg
 - selecting a record number on the similarity pane should display the record
 - similarity: more options than cosine distance (dot product)
 
+
+
+
+<img width="1253" height="845" alt="Inference_results" src="https://github.com/user-attachments/assets/ea13dac9-dadc-4eb1-84f8-5b4ca848450d" />
+----
+<img width="1255" height="937" alt="Cluster_Plot" src="https://github.com/user-attachments/assets/c3c25214-fcc9-42c9-8f84-f7b5ec43ff29" />
+----
+<img width="1366" height="865" alt="layer-wise-analysis" src="https://github.com/user-attachments/assets/45bb8930-bd3f-47e4-81da-053384337094" />
+
+
+
+
