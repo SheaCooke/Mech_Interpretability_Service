@@ -211,7 +211,7 @@ export default function LayerDeviationPlot({
         Select an incorrectly classified record to compare its per-layer
         activation vectors against the <strong>prototype</strong> for its true
         label and its predicted label. The prototype is the mean activation
-        vector of all correctly classified records for that label.
+        vector of all correctly classified records for that label. Deviation is measured in cosine distance.
       </p>
 
       {/* Record selector */}
@@ -327,28 +327,6 @@ export default function LayerDeviationPlot({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Insight hint */}
-          <div className="dev-insight-row">
-            <div className="dev-insight">
-              <span className="dev-insight-label" style={{ color: COLOR_TRUE }}>
-                True-label line converging to 0
-              </span>
-              <span className="dev-insight-desc">
-                The record's activations were becoming similar to the correct class
-                at that layer — the model almost classified it correctly.
-              </span>
-            </div>
-            <div className="dev-insight">
-              <span className="dev-insight-label" style={{ color: COLOR_PREDICTED }}>
-                Predicted-label line diverging upward
-              </span>
-              <span className="dev-insight-desc">
-                The record's activations were pulled away from the predicted class
-                at that layer — investigate which layer first drives the wrong decision.
-              </span>
-            </div>
           </div>
         </>
       )}

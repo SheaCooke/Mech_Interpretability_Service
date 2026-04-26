@@ -9,7 +9,7 @@ from typing import Optional
 import pandas as pd
 
 class Model_Processor:
-    SUPPORTED_FORMATS = ['keras', 'onnx', 'pt', 'pth']
+    
 
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -17,9 +17,13 @@ class Model_Processor:
         self.model = self.__load_model()
         self.model_data = self.__extract_model_data()
 
+
     # -------------------------
     # Loading
     # -------------------------
+
+    SUPPORTED_DATASET_FORMATS = ['csv', 'npz']
+    SUPPORTED_FORMATS = ['keras', 'onnx', 'pt', 'pth']
 
     def __detect_format(self) -> str:
         ext = self.file_path.split('.')[-1].lower()
@@ -264,83 +268,117 @@ class Model_Processor:
         return results
 
     def __run_onnx_inference(self, test_data: list[dict]) -> list[dict]:
-        # Add all intermediate outputs to capture activations
+        # Clone model and register every intermediate node output
         model_copy = onnx.ModelProto()
         model_copy.CopyFrom(self.model)
+        existing_outputs = {o.name for o in model_copy.graph.output}
         for node in model_copy.graph.node:
-            for output in node.output:
-                if output not in [o.name for o in model_copy.graph.output]:
-                    model_copy.graph.output.extend([onnx.ValueInfoProto(name=output)])
-
-        session = ort.InferenceSession(model_copy.SerializeToString())
-        input_name = session.get_inputs()[0].name
+            for output_name in node.output:
+                if output_name not in existing_outputs:
+                    model_copy.graph.output.extend(
+                        [onnx.ValueInfoProto(name=output_name)]
+                    )
+ 
+        session      = ort.InferenceSession(model_copy.SerializeToString())
+        input_name   = session.get_inputs()[0].name
         output_names = [o.name for o in session.get_outputs()]
-
+ 
+        # Final output name — the last declared output of the original model
+        final_output_name = session.get_outputs()[0].name
+ 
         results = []
         for record in test_data:
-            input_data = np.expand_dims(record['input'].astype(np.float32), axis=0)
+            input_data  = np.expand_dims(record['input'].astype(np.float32), axis=0)
             raw_outputs = session.run(output_names, {input_name: input_data})
-
-            activations = {
-                name: output[0].tolist()
-                for name, output in zip(output_names, raw_outputs)
-                if output is not None and hasattr(output, '__len__')
-            }
-
-            final_output = raw_outputs[output_names.index(session.get_outputs()[0].name)]
-
+ 
+            # Build per-layer dict from all node outputs
+            # ONNX exposes operations rather than layers, so each entry is one op
+            per_layer = {}
+            flat_parts = []
+            for name, output in zip(output_names, raw_outputs):
+                if output is None or not hasattr(output, '__len__'):
+                    continue
+                arr = np.array(output[0])
+                per_layer[name] = arr.flatten().tolist()
+                flat_parts.append(arr.flatten())
+ 
+            flat = np.concatenate(flat_parts) if flat_parts else np.array([])
+ 
+            final_idx   = output_names.index(final_output_name)
+            final_output = raw_outputs[final_idx]
+ 
             results.append({
-                'id':          record['id'],
-                'input':       record['input'].tolist(),
-                'label':       record.get('label'),
-                'predicted':   int(np.argmax(final_output[0])),
-                'correct':     int(np.argmax(final_output[0])) == record.get('label'),
-                'activations': activations,
+                'id':                record['id'],
+                'input':             record['input'].tolist(),
+                'label':             record.get('label'),
+                'predicted':         int(np.argmax(final_output[0])),
+                'correct':           int(np.argmax(final_output[0])) == record.get('label'),
+                'activations':       flat,
+                'layer_activations': per_layer,
             })
-
+ 
         return results
 
     def __run_pytorch_inference(self, test_data: list[dict]) -> list[dict]:
-        captured_activations = {}
-
-        def make_hook(name):
+        # captured_activations is rebuilt per record inside the loop
+        captured: dict[str, np.ndarray] = {}
+ 
+        def make_hook(name: str):
             def hook(module, input, output):
-                captured_activations[name] = output.detach().numpy()[0].tolist()
+                # output may be a tensor or a tuple (e.g. LSTM returns (out, hidden))
+                if isinstance(output, tuple):
+                    tensor = output[0]
+                else:
+                    tensor = output
+                captured[name] = tensor.detach().numpy()[0]
             return hook
-
-        # Register hooks on all layers
+ 
         hooks = []
         for name, module in self.model.named_modules():
             if name != '':
                 hooks.append(module.register_forward_hook(make_hook(name)))
-
+ 
         results = []
         with torch.no_grad():
             for record in test_data:
-                captured_activations.clear()
+                captured.clear()
+ 
                 input_tensor = torch.tensor(
                     np.expand_dims(record['input'], axis=0),
                     dtype=torch.float32
                 )
                 output = self.model(input_tensor)
+ 
+                # Build per-layer dict in hook-capture order
+                per_layer = {
+                    name: arr.flatten().tolist()
+                    for name, arr in captured.items()
+                }
+ 
+                # Flat concatenation for distance analysis
+                flat = np.concatenate([
+                    arr.flatten() for arr in captured.values()
+                ]) if captured else np.array([])
+ 
                 predicted = int(torch.argmax(output[0]).item())
-
+ 
                 results.append({
-                    'id':          record['id'],
-                    'input':       record['input'].tolist(),
-                    'label':       record.get('label'),
-                    'predicted':   predicted,
-                    'correct':     predicted == record.get('label'),
-                    'activations': dict(captured_activations),
+                    'id':                record['id'],
+                    'input':             record['input'].tolist(),
+                    'label':             record.get('label'),
+                    'predicted':         predicted,
+                    'correct':           predicted == record.get('label'),
+                    'activations':       flat,
+                    'layer_activations': per_layer,
                 })
-
-        # Always remove hooks after inference
+ 
+        # Always remove hooks after inference to prevent accumulation
         for hook in hooks:
             hook.remove()
-
+ 
         return results
     
-    SUPPORTED_DATASET_FORMATS = ['csv', 'npz']
+    
 
     def load_dataset(self, file_path: str, label_column: Optional[str] = None) -> list[dict]:
         """
