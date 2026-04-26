@@ -82,3 +82,37 @@ export async function fetchClusterPlot(
     body: JSON.stringify({ session_id: sessionId, filter }),
   });
 }
+
+// ── Layer-wise analysis ───────────────────────────────────
+ 
+export interface IncorrectRecord {
+  id: string;
+  label: number | null;
+  predicted: number;
+}
+ 
+export interface LayerDeviationData {
+  record_id: string;
+  true_label: number | null;
+  predicted_label: number;
+  layer_names: string[];
+  true_label_deviations: (number | null)[];
+  predicted_deviations: (number | null)[];
+}
+ 
+export async function fetchIncorrectRecords(
+  sessionId: string
+): Promise<{ records: IncorrectRecord[]; total: number }> {
+  return apiFetch(`/analysis/incorrect-records?session_id=${sessionId}`);
+}
+ 
+export async function fetchLayerDeviation(
+  sessionId: string,
+  recordId: string
+): Promise<LayerDeviationData> {
+  return apiFetch("/analysis/layer-deviation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, record_id: recordId }),
+  });
+}

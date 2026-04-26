@@ -243,10 +243,13 @@ class Model_Processor:
                 for layer_activation in layer_activations
             ])
 
-            if len(results) == 0: #TODO: remove
-                print('first activations -------------- \n')
-                print(activations)
-                print('end --------------- \n')
+            #TODO: add to other inference methods
+            layer_names = [layer.name for layer in self.model.layers]
+
+            per_layer = {
+                name: la[0].tolist()
+                for name, la in zip(layer_names, layer_activations)
+            }
 
             results.append({
                 'id':          record['id'], #TODO: id wont always be a column
@@ -255,6 +258,7 @@ class Model_Processor:
                 'predicted':   int(np.argmax(layer_activations[-1][0])),
                 'correct':     int(np.argmax(layer_activations[-1][0])) == record.get('label'),
                 'activations': activations,
+                'layer_activations': per_layer,
             })
 
         return results

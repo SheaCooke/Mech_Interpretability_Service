@@ -34,6 +34,7 @@ export default function Sidebar({
   onRunInference, onFindPairs, onClusterPlot,
 }: Props) {
   const idx = stepIdx[step];
+  const analysisLocked = idx < 3;
 
   return (
     <div className="col-left">
@@ -91,10 +92,10 @@ export default function Sidebar({
         </button>
       </section>
 
-      {/* Step 4 – Analysis */}
-      <section className={`card ${idx < 3 ? "card-locked" : ""}`}>
+      {/* Step 4a – General Analysis */}
+      <section className={`card ${analysisLocked ? "card-locked" : ""}`}>
         <h2 className="card-title">
-          <span className="card-num">04</span> Analysis
+          <span className="card-num">04</span> General Analysis
         </h2>
 
         {/* Filter dropdown — applies to all analysis below */}
@@ -146,6 +147,18 @@ export default function Sidebar({
           {loading ? "Computing…" : "Generate Cluster Plot"}
         </button>
       </section>
+
+      {/* Step 4b – Layer-wise Analysis */}
+      <section className={`card ${analysisLocked ? "card-locked" : ""}`}>
+        <h2 className="card-title">
+          <span className="card-num">04b</span> Layer-Wise Analysis
+        </h2>
+        <p className="sidebar-section-desc">
+          Select an incorrectly classified record in the panel on the right to
+          compare its per-layer activations against the class prototypes.
+        </p>
+      </section>
+
     </div>
   );
 }

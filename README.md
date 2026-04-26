@@ -112,13 +112,10 @@ If a record diverges at a specific layer, it suggests that layer has not learned
 Springer Nature Link
 Springer Nature Link
 Targeted Learning: You can apply a higher learning rate specifically to the "divergent" layer and its immediate successors while freezing or using a lower learning rate for early layers that are already aligned with the prototype. 
-OpenReview
-OpenReview
 
 2. Selective Fine-Tuning (Model Surgery)
 Research shows that fine-tuning often only modifies a small subset of parameters or creates a "wrapper" over existing capabilities. 
-OpenReview
-OpenReview
+
 
 Layer Selection: Use the divergence point to determine which layers to unfreeze. For example, if divergence happens in the middle MLP layers, focus your fine-tuning (or LoRA updates) exclusively on those blocks to save compute and prevent catastrophic forgetting in early layers. 
 
@@ -128,11 +125,9 @@ Early Divergence (Perception Error): The model is failing on low-level features 
 Late Divergence (Logic Error): The model "sees" the parts correctly but "reasons" about them poorly. Add harder examples that require distinguishing between closely related classes (e.g., more "husky vs. wolf" images).
 4. Loss Function Regularization
 You can introduce a layer-wise error-correcting term to your loss function. 
-LJMU Research Online
-LJMU Research Online
+
 Constraint-Based Training: During a specialized training pass, you can add a penalty if the activation vector of a problematic record drifts too far from the "correct" class mean at the identified divergence layer. This forces the layer to "anchor" its representations more closely to the ground-truth prototype. 
-LJMU Research Online
-LJMU Research Online
+
 5. Activation Steering (Inference-Time Fix)
 If you cannot retrain, you can use the divergence information for internal activation revision. 
 

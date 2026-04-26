@@ -4,6 +4,8 @@ import "./styles/global.css";
 import {
   uploadModel, uploadDataset, runInference,
   fetchSimilarPairs, fetchClusterPlot, deleteSession,
+  LayerDeviationData, IncorrectRecord, fetchLayerDeviation,
+  fetchIncorrectRecords,
 } from "./api/client";
 import type {
   ModelData, InferenceSummary, SimilarPair,
@@ -19,6 +21,7 @@ import PairsPanel   from "./components/PairsPanel";
 import ClusterPlot  from "./components/ClusterPlot";
 import InstructionsPage from "./pages/InstructionsPage";
 import InterpretingPage from "./pages/InterpretingPage";
+import LayerDeviationPlot  from "./components/LayerDeviationPlot";
 
 export default function App() {
     // ── Page routing ──────────────────────────────────────────────────────────
@@ -36,6 +39,10 @@ export default function App() {
   const [labelColumn,      setLabelColumn]      = useState("");
   const [threshold,        setThreshold]        = useState(0.1);
   const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
+    // ── Layer-wise analysis state ─────────────────────────────────────────────
+  const [incorrectRecords,  setIncorrectRecords]  = useState<IncorrectRecord[]>([]);
+  const [deviationData,     setDeviationData]     = useState<LayerDeviationData | null>(null);
+  const [deviationLoading,  setDeviationLoading]  = useState(false);
 
   function setErr(msg: string) { setStatus({ msg, type: "error"   }); setLoading(false); }
   function setOk (msg: string) { setStatus({ msg, type: "success" }); setLoading(false); }
@@ -69,12 +76,19 @@ export default function App() {
     setLoading(true);
     setSummary(null);
     setPairs(null);
+    setIncorrectRecords([]);
     setClusterData(null);
     setStatus({ msg: "Running inference…", type: "info" });
     try {
       const res = await runInference(sessionId);
       setSummary(res.summary);
       setStep("analysis");
+
+      // Immediately fetch incorrect records for layer-wise panel
+      const inc = await fetchIncorrectRecords(sessionId);
+      setIncorrectRecords(inc.records);
+
+
       setOk("Inference complete.");
     } catch (e: any) { setErr(e.message); }
   }
@@ -103,13 +117,30 @@ export default function App() {
     } catch (e: any) { setErr(e.message); }
   }
 
+
+    async function handleRecordSelect(recordId: string) {
+    if (!sessionId) return;
+    setDeviationLoading(true);
+    setDeviationData(null);
+    try {
+      const res = await fetchLayerDeviation(sessionId, recordId);
+      setDeviationData(res);
+    } catch (e: any) {
+      setStatus({ msg: e.message, type: "error" });
+    } finally {
+      setDeviationLoading(false);
+    }
+  }
+
   async function handleReset() {
     if (sessionId) await deleteSession(sessionId).catch(() => {});
     setSessionId(null); setModelData(null); setDatasetMeta(null);
     setSummary(null); setPairs(null); setClusterData(null);
+    setIncorrectRecords([]); setDeviationData(null);
     setStep("upload-model"); setStatus(null);
     setPredictionFilter("all");
   }
+  const showAnalysis = step === "analysis";
 
   return (
     <div className="app">
@@ -145,20 +176,50 @@ export default function App() {
             onClusterPlot={handleClusterPlot}
           />
           <div className="col-right">
-            {modelData    && <ModelInfo data={modelData} />}
-            {summary      && <SummaryPanel summary={summary} />}
-            {pairs        && <PairsPanel pairs={pairs} />}
-            {clusterData  && (
-              <ClusterPlot
-                points={clusterData.points}
-                method={clusterData.method}
-              />
-            )}
+              {/* Always-visible model info */}
+              {modelData && <ModelInfo data={modelData} />}
+ 
+              {/* Inference summary */}
+              {summary && <SummaryPanel summary={summary} />}
+ 
+              {/* ── General Analysis ── */}
+              {showAnalysis && (
+                <div className="analysis-section">
+                  <h2 className="analysis-section-title">General Analysis</h2>
+                  {pairs && <PairsPanel pairs={pairs} />}
+                  {clusterData  && (
+                    <ClusterPlot
+                      points={clusterData.points}
+                      method={clusterData.method}
+                    />
+                  )}
+                </div>
+              )}
+ 
+              {/* ── Layer-wise Analysis ── */}
+              {showAnalysis && (
+                <div className="analysis-section">
+                  <h2 className="analysis-section-title">Layer-Wise Analysis</h2>
+                  {incorrectRecords.length === 0 ? (
+                    <div className="analysis-section-empty">
+                      No incorrectly classified records found
+                    </div>
+                  ) : (
+                    <LayerDeviationPlot
+                      sessionId={sessionId ?? ""}
+                      incorrectRecords={incorrectRecords}
+                      onRecordSelect={handleRecordSelect}
+                      deviationData={deviationData}
+                      loading={deviationLoading}
+                    />
+                  )}
+            </div>
+              )}
             {!modelData && (
-              <div className="empty-state">
-                <Cpu size={48} strokeWidth={1} />
-                <p>Upload a model to begin.</p>
-              </div>
+                  <div className="empty-state">
+                    <Cpu size={48} strokeWidth={1} />
+                    <p>Upload a model to begin.</p>
+                  </div>
             )}
           </div>
         </div>

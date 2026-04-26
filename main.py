@@ -340,3 +340,80 @@ def cluster_plot(body: dict):
         "filter": filter_val,
         **plot_data,
     })
+
+
+# ── 8. Incorrectly classified records list ────────────────
+ 
+@app.get("/analysis/incorrect-records")
+def get_incorrect_records(session_id: str):
+    """
+    Returns a list of all records that were incorrectly classified,
+    for use in the layer-wise analysis record selector.
+    """
+    session = _require_session(session_id)
+    if session["inference_results"] is None:
+        raise HTTPException(status_code=400, detail="No inference results. Run inference first.")
+ 
+    incorrect = [
+        {
+            "id":        r["id"],
+            "label":     r["label"],
+            "predicted": r["predicted"],
+        }
+        for r in session["inference_results"]
+        if r.get("correct") is False
+    ]
+ 
+    return {
+        "session_id": session_id,
+        "total": len(incorrect),
+        "records": incorrect,
+    }
+ 
+ 
+# ── 9. Layer deviation ────────────────────────────────────
+ 
+@app.post("/analysis/layer-deviation")
+def layer_deviation(body: dict):
+    """
+    For a selected incorrectly-classified record, computes the cosine distance
+    between its per-layer activations and:
+      - the prototype (mean) of correct activations for the TRUE label
+      - the prototype (mean) of correct activations for the PREDICTED label
+ 
+    Returns per-layer deviation values for both lines of the deviation chart.
+    """
+    session_id = body.get("session_id")
+    record_id  = body.get("record_id")
+ 
+    session = _require_session(session_id)
+ 
+    if session["inference_results"] is None:
+        raise HTTPException(status_code=400, detail="No inference results. Run inference first.")
+ 
+    results = session["inference_results"]
+ 
+    # Find the target record
+    target = next((r for r in results if r["id"] == record_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"Record '{record_id}' not found.")
+ 
+    if "layer_activations" not in target or not target["layer_activations"]:
+        raise HTTPException(
+            status_code=422,
+            detail="Record does not contain per-layer activations. "
+                   "Ensure the model was loaded and inference run with the updated Model_Processor."
+        )
+ 
+    from layer_analysis import compute_prototypes, compute_layer_deviations
+ 
+    try:
+        prototypes  = compute_prototypes(results)
+        deviations  = compute_layer_deviations(target, prototypes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Layer deviation failed: {str(e)}")
+ 
+    return _numpy_safe({
+        "session_id": session_id,
+        **deviations,
+    })
