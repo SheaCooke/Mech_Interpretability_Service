@@ -21,20 +21,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------------------------------------------
-# In-memory session store
+
+#session store
 # Each session holds a loaded Model_Processor and optionally
 # the results of the last inference run.
-# -------------------------------------------------------
 sessions: dict[str, dict] = {}
 
 SUPPORTED_MODEL_EXTENSIONS = {"keras", "onnx", "pt", "pth"}
 SUPPORTED_DATASET_EXTENSIONS = {"csv", "npz"}
 
-
-# -------------------------------------------------------
-# Request / Response schemas
-# -------------------------------------------------------
 
 class SimilarPairsRequest(BaseModel):
     session_id: str
@@ -48,9 +43,6 @@ class InferenceRequest(BaseModel):
     batch_size: Optional[int] = None
 
 
-# -------------------------------------------------------
-# Helpers
-# -------------------------------------------------------
 
 def _apply_filter(results: list[dict], filter: str) -> list[dict]:
     if filter == "correct":
@@ -84,16 +76,10 @@ def _numpy_safe(obj):
     return obj
 
 
-# -------------------------------------------------------
-# Routes
-# -------------------------------------------------------
-
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-
-# ── 1. Upload model ──────────────────────────────────────
 
 @app.post("/upload/model")
 async def upload_model(file: UploadFile = File(...)):
@@ -109,7 +95,7 @@ async def upload_model(file: UploadFile = File(...)):
             detail=f"Unsupported model format '.{ext}'. Supported: {SUPPORTED_MODEL_EXTENSIONS}",
         )
 
-    # Write upload to a named temp file that persists for the session
+    #write upload to a named temp file that persists for the session
     tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
     try:
         contents = await file.read()
@@ -139,7 +125,6 @@ async def upload_model(file: UploadFile = File(...)):
     }
 
 
-# ── 2. Upload dataset ────────────────────────────────────
 
 @app.post("/upload/dataset")
 async def upload_dataset(
@@ -190,7 +175,6 @@ async def upload_dataset(
     }
 
 
-# ── 3. Run inference ─────────────────────────────────────
 
 @app.post("/inference/run")
 def run_inference(body: InferenceRequest):
@@ -232,7 +216,6 @@ def run_inference(body: InferenceRequest):
     }
 
 
-# ── 4. Get inference results ─────────────────────────────
 
 @app.get("/inference/results")
 def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
@@ -264,8 +247,6 @@ def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
     }
 
 
-# ── 5. Similar pairs ─────────────────────────────────────
-
 @app.post("/analysis/similar-pairs")
 def similar_pairs(body: SimilarPairsRequest):
     session = _require_session(body.session_id)
@@ -294,16 +275,12 @@ def similar_pairs(body: SimilarPairsRequest):
     }
 
 
-# ── 6. Model data ─────────────────────────────────────────
-
 @app.get("/model/data")
 def get_model_data(session_id: str):
     session = _require_session(session_id)
     processor: "Model_Processor" = session["processor"]
     return _numpy_safe(processor.model_data)
 
-
-# ── 7. Session cleanup ────────────────────────────────────
 
 @app.delete("/session/{session_id}")
 def delete_session(session_id: str):
@@ -341,8 +318,6 @@ def cluster_plot(body: dict):
         **plot_data,
     })
 
-
-# ── 8. Incorrectly classified records list ────────────────
  
 @app.get("/analysis/incorrect-records")
 def get_incorrect_records(session_id: str):
@@ -370,8 +345,6 @@ def get_incorrect_records(session_id: str):
         "records": incorrect,
     }
  
- 
-# ── 9. Layer deviation ────────────────────────────────────
  
 @app.post("/analysis/layer-deviation")
 def layer_deviation(body: dict):
