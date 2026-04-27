@@ -95,6 +95,7 @@ This is directly actionable for training. If most misclassifications show diverg
 
 
 ## Planned Features:
+- Support models from Pytorch and ONNX. Currently Keras is the only model lib supported
 - Make this project usable by an agent: expose API for uploading/inference/analysis then return the results in a way that is usable by an LLM, not just through the UI.
 - Cluster Plot hover is broken - dosen't display record ids
 - Provide option to weight outputs from different layers when performing analysis
