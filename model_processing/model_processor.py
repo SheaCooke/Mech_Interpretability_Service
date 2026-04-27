@@ -18,10 +18,6 @@ class Model_Processor:
         self.model_data = self.__extract_model_data()
 
 
-    # -------------------------
-    # Loading
-    # -------------------------
-
     SUPPORTED_DATASET_FORMATS = ['csv', 'npz']
     SUPPORTED_FORMATS = ['keras', 'onnx', 'pt', 'pth']
 
@@ -454,7 +450,6 @@ class Model_Processor:
                 'label': int(y_test[idx]) if y_test is not None else None,
             })
         
-        print(f'first test record: {records[0]}') #TODO: remove
 
         return records    #[:100]
 
@@ -479,16 +474,12 @@ class Model_Processor:
             - records:  list of records with activations and predictions
             - summary:  accuracy, total records, correct predictions etc.
         """
-        print(f"Loading dataset from {dataset_path}...")
         records = self.load_dataset(dataset_path, label_column)
-        print(f"Loaded {len(records)} records.")
 
-        print(f"Running inference using {self.format} model...")
         if batch_size:
             results = self.__run_batched_inference(records, batch_size)
         else:
             results = self.run_inference(records)
-        print(f"Inference complete.")
 
         summary = self.__summarize_results(results)
 
