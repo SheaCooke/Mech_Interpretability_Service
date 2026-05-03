@@ -37,7 +37,8 @@ export default function App() {
   const [loading,          setLoading]          = useState(false);
   const [status,           setStatus]           = useState<StatusMessage | null>(null);
   const [labelColumn,      setLabelColumn]      = useState("");
-  const [threshold,        setThreshold]        = useState(0.1);
+  const [thresholdLow,  setThresholdLow]  = useState(0.0);
+  const [thresholdHigh, setThresholdHigh] = useState(0.2);
   const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
     // ── Layer-wise analysis state ─────────────────────────────────────────────
   const [incorrectRecords,  setIncorrectRecords]  = useState<IncorrectRecord[]>([]);
@@ -99,7 +100,7 @@ export default function App() {
     setPairs(null);
     setStatus({ msg: `Computing similar pairs (${predictionFilter})…`, type: "info" });
     try {
-      const res = await fetchSimilarPairs(sessionId, threshold, predictionFilter);
+      const res = await fetchSimilarPairs(sessionId, thresholdLow, thresholdHigh, predictionFilter);
       setPairs(res.pairs);
       setOk(`Found ${res.num_pairs} similar pairs (${predictionFilter}).`);
     } catch (e: any) { setErr(e.message); }
@@ -165,9 +166,11 @@ export default function App() {
           <Sidebar
             step={step} loading={loading} sessionId={sessionId}
             datasetMeta={datasetMeta} labelColumn={labelColumn}
-            threshold={threshold} predictionFilter={predictionFilter}
+            thresholdLow={thresholdLow}
+            thresholdHigh={thresholdHigh} 
+            predictionFilter={predictionFilter}
             onLabelColumnChange={setLabelColumn}
-            onThresholdChange={setThreshold}
+            onThresholdChange={(low, high) => { setThresholdLow(low); setThresholdHigh(high); }}
             onPredictionFilterChange={setPredictionFilter}
             onModelFile={handleModelFile}
             onDatasetFile={handleDatasetFile}

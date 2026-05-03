@@ -27,13 +27,15 @@ app.add_middleware(
 # the results of the last inference run.
 sessions: dict[str, dict] = {}
 
-SUPPORTED_MODEL_EXTENSIONS = {"keras", "onnx", "pt", "pth"}
+#TODO: should be same as what is used in model_processor
+SUPPORTED_MODEL_EXTENSIONS = {"keras"}  #{"keras", "onnx", "pt", "pth"}
 SUPPORTED_DATASET_EXTENSIONS = {"csv", "npz"}
 
 
 class SimilarPairsRequest(BaseModel):
     session_id: str
-    threshold: float = 0.1
+    threshold_low:  float = 0.0
+    threshold_high: float = 0.2
     filter: str = "all"  # "all" | "correct" | "incorrect"
 
 
@@ -191,7 +193,7 @@ def run_inference(body: InferenceRequest):
     records = session["dataset_records"]
 
     try:
-        if body.batch_size:
+        if body.batch_size: #TODO: why does this exist?
             # reuse the private batched runner via the public pipeline method but
             # we already have records loaded, so call run_inference directly in batches
             results = processor._Model_Processor__run_batched_inference(records, body.batch_size)
@@ -256,19 +258,28 @@ def similar_pairs(body: SimilarPairsRequest):
     # Apply filter before building a temporary analyzer
     
     filtered = _apply_filter(session["inference_results"], body.filter)
+
     if not filtered:
         raise HTTPException(status_code=400, detail=f"No records match filter '{body.filter}'.")
+    
+    if body.threshold_low >= body.threshold_high:
+        raise HTTPException(
+            status_code=400,
+            detail=f"threshold_low ({body.threshold_low}) must be less than "
+                   f"threshold_high ({body.threshold_high})."
+        )
 
     analyzer = Vector_Analyzer(filtered)
 
     try:
-        pairs = analyzer.find_all_similar_pairs(threshold=body.threshold)
+        pairs = analyzer.find_all_similar_pairs(low=body.threshold_low, high=body.threshold_high)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
     return {
         "session_id": body.session_id,
-        "threshold": body.threshold,
+        "threshold_low":  body.threshold_low,
+        "threshold_high": body.threshold_high,
         "filter": body.filter,
         "num_pairs": len(pairs),
         "pairs": _numpy_safe(pairs),

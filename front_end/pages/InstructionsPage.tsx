@@ -153,8 +153,6 @@ export default function InstructionsPage() {
         <div className="format-grid">
           {[
             { ext: ".keras",     desc: "Keras 3.x native format. Recommended for models trained with TensorFlow / Keras." },
-            { ext: ".onnx",      desc: "Open Neural Network Exchange. Framework-agnostic — export from PyTorch, TensorFlow, or scikit-learn." },
-            { ext: ".pt / .pth", desc: "PyTorch serialised model. Must be saved with torch.save(model, path), not just the state dict." },
             { ext: ".csv",       desc: "Tabular dataset. All columns except the label column are treated as input features." },
             { ext: ".npz",       desc: "NumPy compressed archive. Must contain x_test and optionally y_test arrays." },
           ].map(f => (

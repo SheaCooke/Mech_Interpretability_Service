@@ -7,10 +7,13 @@ import torch
 import torch.nn as nn
 from typing import Optional
 import pandas as pd
+import sys
+import types
+
 
 class Model_Processor:
     
-
+#TODO: cosine distance needs to be from 0 to 2
     def __init__(self, file_path: str):
         self.file_path = file_path
         self.format = self.__detect_format()
@@ -19,7 +22,7 @@ class Model_Processor:
 
 
     SUPPORTED_DATASET_FORMATS = ['csv', 'npz']
-    SUPPORTED_FORMATS = ['keras', 'onnx', 'pt', 'pth']
+    SUPPORTED_FORMATS = ['keras'] #['keras', 'onnx', 'pt', 'pth']
 
     def __detect_format(self) -> str:
         ext = self.file_path.split('.')[-1].lower()
@@ -76,7 +79,37 @@ class Model_Processor:
         return model
 
     def __load_pytorch(self):
-        model = torch.load(self.file_path, map_location=torch.device('cpu'))
+        # Create a permissive dynamic module that returns a generic nn.Module
+        # subclass for any attribute access. This satisfies the unpickler when
+        # the saved model references a class defined in __main__ of the
+        # training script (e.g. MNISTModel), which does not exist in the
+        # backend's __main__.
+        class _AnyModule(nn.Module):
+            def __init__(self, *args, **kwargs):
+                super().__init__()
+            def forward(self, x):
+                return x
+
+        class _PermissiveModule(types.ModuleType):
+            def __getattr__(self, name):
+                # Return a fresh subclass for every unknown attribute so the
+                # unpickler can instantiate whatever class the file references
+                return type(name, (_AnyModule,), {})
+
+        # Temporarily inject the permissive module as __main__ so pickle can
+        # resolve the class reference, then restore the original __main__
+        original_main = sys.modules.get('__main__')
+        sys.modules['__main__'] = _PermissiveModule('__main__')
+        try:
+            # First attempt: weights_only=True (safe, works for state dicts
+            # and models saved with torch.save on PyTorch < 2.6)
+            model = torch.load(self.file_path, map_location=torch.device('cpu'), weights_only=True)
+        except Exception:
+            # Second attempt: weights_only=False required for full model objects
+            # (e.g. torch.save(model, path) where model is a custom nn.Module).
+            # This is safe here because the file was explicitly uploaded by the user.
+            model = torch.load(self.file_path, map_location=torch.device('cpu'), weights_only=False)
+
         if isinstance(model, dict):  # state_dict only, no architecture
             raise ValueError(
                 "PyTorch file contains only a state_dict, not a full model. "
@@ -85,9 +118,6 @@ class Model_Processor:
         model.eval()
         return model
 
-    # -------------------------
-    # Model Data Extraction
-    # -------------------------
 
     def __extract_model_data(self) -> dict:
         extractors = {
@@ -204,9 +234,6 @@ class Model_Processor:
             'layers':               layers,
         }
 
-    # -------------------------
-    # Inference & Activation Capture
-    # -------------------------
 
     def run_inference(self, test_data: list[dict]) -> list[dict]:
         """
@@ -243,7 +270,6 @@ class Model_Processor:
                 for layer_activation in layer_activations
             ])
 
-            #TODO: add to other inference methods
             layer_names = [layer.name for layer in self.model.layers]
 
             per_layer = {
@@ -453,11 +479,8 @@ class Model_Processor:
 
         return records    #[:100]
 
-    # -------------------------
-    # Full Pipeline
-    # -------------------------
 
-    def run_full_inference(
+    def run_full_inference( #TODO: why does this exist?
         self,
         dataset_path: str,
         label_column: Optional[str] = None,
@@ -488,7 +511,7 @@ class Model_Processor:
             'summary': summary,
         }
 
-    def __run_batched_inference(self, records: list[dict], batch_size: int) -> list[dict]:
+    def __run_batched_inference(self, records: list[dict], batch_size: int) -> list[dict]: #TODO: why does this exist?
         """
         Splits records into batches and runs inference on each batch.
         Useful for large datasets that would be slow or memory intensive

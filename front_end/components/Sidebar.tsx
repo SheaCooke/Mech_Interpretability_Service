@@ -1,4 +1,5 @@
 import DropZone from "./DropZone";
+import RangeSlider from "./RangeSlider";
 import type { Step, DatasetMeta, PredictionFilter  } from "../types";
 
 interface Props {
@@ -7,10 +8,11 @@ interface Props {
   sessionId: string | null;
   datasetMeta: DatasetMeta | null;
   labelColumn: string;
-  threshold: number;
+  thresholdLow: number;
+  thresholdHigh: number;
   predictionFilter: PredictionFilter;
   onLabelColumnChange: (val: string) => void;
-  onThresholdChange: (val: number) => void;
+  onThresholdChange: (low: number, high: number) => void;
   onPredictionFilterChange: (val: PredictionFilter) => void;
   onModelFile: (file: File) => void;
   onDatasetFile: (file: File) => void;
@@ -28,7 +30,7 @@ const stepIdx: Record<Step, number> = {
 
 export default function Sidebar({
   step, loading, sessionId, datasetMeta,
-  labelColumn, threshold, predictionFilter,
+  labelColumn, thresholdLow, thresholdHigh, predictionFilter,
   onLabelColumnChange, onThresholdChange, onPredictionFilterChange,
   onModelFile, onDatasetFile,
   onRunInference, onFindPairs, onClusterPlot,
@@ -115,19 +117,30 @@ export default function Sidebar({
           </select>
         </div>
 
-        {/* Threshold slider */}
+        {/* Dual-thumb range slider */}
         <div className="threshold-row">
-          <label className="threshold-label">
-            Similarity threshold (cosine distance){" "}
-            <span className="threshold-val">{threshold.toFixed(2)}</span>
-          </label>
-          <input
-            type="range" min={0.00} max={1.0} step={0.01}
-            value={threshold}
-            onChange={(e) => onThresholdChange(parseFloat(e.target.value))}
-            disabled={step !== "analysis" || loading}
-            className="slider"
+          <div className="threshold-label-row">
+            <span className="threshold-label">Similarity range</span>
+            <span className="threshold-val">
+              {thresholdLow.toFixed(2)}
+              <span className="threshold-sep">–</span>
+              {thresholdHigh.toFixed(2)}
+            </span>
+          </div>
+          <RangeSlider
+            min={0.00}
+            max={1.00}
+            step={0.01}
+            valueLow={thresholdLow}
+            valueHigh={thresholdHigh}
+            disabled={analysisLocked || loading}
+            onChange={onThresholdChange}
           />
+          <div className="threshold-axis">
+            <span>0.00 (identical)</span>
+            <span>1.00 (orthogonal)</span>
+            <span>2.00 (opposite)</span>
+          </div>
         </div>
 
         <button
