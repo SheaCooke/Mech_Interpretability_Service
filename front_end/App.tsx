@@ -105,7 +105,7 @@ export default function App() {
     try {
       const res = await fetchSimilarPairs(sessionId, thresholdLow, thresholdHigh, predictionFilter);
       setPairs(res.pairs);
-      setOk(`Found ${res.num_pairs} similar pairs (${predictionFilter}).`);
+      setOk(`Found ${res.num_pairs} similar pairs (with filter for ${predictionFilter} inference results).`);
     } catch (e: any) { setErr(e.message); }
   }
 

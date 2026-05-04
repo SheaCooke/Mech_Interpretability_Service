@@ -28,7 +28,6 @@ app.add_middleware(
 sessions: dict[str, dict] = {} #TODO: replace with redis or a DB
 
 #TODO: switching pages cancels generate cluster graph process
-#TODO: Similar Activation Pairs returning more than num incorrect when filtering for incorrect only
 #TODO: should be able to reset run inference section
 
 #TODO: should be same as what is used in model_processor
