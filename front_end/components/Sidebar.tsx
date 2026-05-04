@@ -8,10 +8,12 @@ interface Props {
   sessionId: string | null;
   datasetMeta: DatasetMeta | null;
   labelColumn: string;
+  inferenceLimit: number;
   thresholdLow: number;
   thresholdHigh: number;
   predictionFilter: PredictionFilter;
   onLabelColumnChange: (val: string) => void;
+  onInferenceLimitChange: (val: number) => void;
   onThresholdChange: (low: number, high: number) => void;
   onPredictionFilterChange: (val: PredictionFilter) => void;
   onModelFile: (file: File) => void;
@@ -30,13 +32,14 @@ const stepIdx: Record<Step, number> = {
 
 export default function Sidebar({
   step, loading, sessionId, datasetMeta,
-  labelColumn, thresholdLow, thresholdHigh, predictionFilter,
-  onLabelColumnChange, onThresholdChange, onPredictionFilterChange,
+  labelColumn, inferenceLimit, thresholdLow, thresholdHigh, predictionFilter,
+  onLabelColumnChange, onInferenceLimitChange, onThresholdChange, onPredictionFilterChange,
   onModelFile, onDatasetFile,
   onRunInference, onFindPairs, onClusterPlot,
 }: Props) {
   const idx = stepIdx[step];
   const analysisLocked = idx < 3;
+  const totalRecords   = datasetMeta?.num_records ?? 0;
 
   return (
     <div className="col-left">
@@ -47,8 +50,8 @@ export default function Sidebar({
           <span className="card-num">01</span> Upload Model
         </h2>
         <DropZone
-          label="Drop .keras / .onnx / .pt / .pth"
-          accept=".keras,.onnx,.pt,.pth"
+          label="Drop .keras file"
+          accept=".keras"
           onFile={onModelFile}
           disabled={loading || !!sessionId}
         />
@@ -85,6 +88,37 @@ export default function Sidebar({
         <h2 className="card-title">
           <span className="card-num">03</span> Run Inference
         </h2>
+
+        {/* Record count slider */}
+        {totalRecords > 0 && (
+          <div className="threshold-row">
+            <div className="threshold-label-row">
+              <span className="threshold-label">Records to run</span>
+              <span className="threshold-val">
+                {inferenceLimit === totalRecords
+                  ? <span>all <span className="threshold-sep">({totalRecords.toLocaleString()})</span></span>
+                  : <span>{inferenceLimit.toLocaleString()} <span className="threshold-sep">/ {totalRecords.toLocaleString()}</span></span>
+                }
+              </span>
+            </div>
+            <input
+              type="range"
+              className="slider"
+              min={1}
+              max={totalRecords}
+              step={1}
+              value={inferenceLimit}
+              onChange={e => onInferenceLimitChange(parseInt(e.target.value, 10))}
+              disabled={step !== "inference" || loading}
+            />
+            <div className="threshold-axis">
+              <span>1</span>
+              <span style={{ textAlign: "center" }}>sample</span>
+              <span style={{ textAlign: "right" }}>all</span>
+            </div>
+          </div>
+        )}
+
         <button
           className="btn btn-primary"
           onClick={onRunInference}
@@ -129,7 +163,7 @@ export default function Sidebar({
           </div>
           <RangeSlider
             min={0.00}
-            max={1.00}
+            max={2.00}
             step={0.01}
             valueLow={thresholdLow}
             valueHigh={thresholdHigh}

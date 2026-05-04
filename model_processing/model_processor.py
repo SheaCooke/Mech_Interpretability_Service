@@ -480,59 +480,6 @@ class Model_Processor:
         return records    #[:100]
 
 
-    def run_full_inference( #TODO: why does this exist?
-        self,
-        dataset_path: str,
-        label_column: Optional[str] = None,
-        batch_size: Optional[int] = None,
-    ) -> dict:
-        """
-        Full pipeline: loads dataset, runs inference, returns results with summary.
-
-        dataset_path: path to .csv or .npz file
-        label_column: column name for labels in CSV files
-        batch_size:   if provided, processes records in batches (useful for large datasets)
-
-        Returns a dict with:
-            - records:  list of records with activations and predictions
-            - summary:  accuracy, total records, correct predictions etc.
-        """
-        records = self.load_dataset(dataset_path, label_column)
-
-        if batch_size:
-            results = self.__run_batched_inference(records, batch_size)
-        else:
-            results = self.run_inference(records)
-
-        summary = self.__summarize_results(results)
-
-        return {
-            'inference_results': results,
-            'summary': summary,
-        }
-
-    def __run_batched_inference(self, records: list[dict], batch_size: int) -> list[dict]: #TODO: why does this exist?
-        """
-        Splits records into batches and runs inference on each batch.
-        Useful for large datasets that would be slow or memory intensive
-        to run all at once.
-        """
-        results = []
-        total = len(records)
-        num_batches = (total + batch_size - 1) // batch_size  # ceiling division
-
-        for batch_idx in range(num_batches):
-            start = batch_idx * batch_size
-            end = min(start + batch_size, total)
-            batch = records[start:end]
-
-            print(f"  Processing batch {batch_idx + 1}/{num_batches} "
-                  f"(records {start}-{end - 1})...")
-
-            batch_results = self.run_inference(batch)
-            results.extend(batch_results)
-
-        return results
 
     def __summarize_results(self, results: list[dict]) -> dict:
         """

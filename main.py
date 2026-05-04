@@ -25,7 +25,11 @@ app.add_middleware(
 #session store
 # Each session holds a loaded Model_Processor and optionally
 # the results of the last inference run.
-sessions: dict[str, dict] = {}
+sessions: dict[str, dict] = {} #TODO: replace with redis or a DB
+
+#TODO: switching pages cancels generate cluster graph process
+#TODO: Similar Activation Pairs returning more than num incorrect when filtering for incorrect only
+#TODO: should be able to reset run inference section
 
 #TODO: should be same as what is used in model_processor
 SUPPORTED_MODEL_EXTENSIONS = {"keras"}  #{"keras", "onnx", "pt", "pth"}
@@ -36,13 +40,14 @@ class SimilarPairsRequest(BaseModel):
     session_id: str
     threshold_low:  float = 0.0
     threshold_high: float = 0.2
-    filter: str = "all"  # "all" | "correct" | "incorrect"
+    filter: str = "all"  # "all" | "correct" | "incorrect" #TODO: replace with enum
 
 
 class InferenceRequest(BaseModel):
     session_id: str
     label_column: Optional[str] = None
     batch_size: Optional[int] = None
+    limit: Optional[int] = None  # num records to run; None = all
 
 
 
@@ -77,10 +82,6 @@ def _numpy_safe(obj):
         return [_numpy_safe(i) for i in obj]
     return obj
 
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
 
 
 @app.post("/upload/model")
@@ -192,13 +193,12 @@ def run_inference(body: InferenceRequest):
     processor: "Model_Processor" = session["processor"]
     records = session["dataset_records"]
 
+    # Apply record limit if provided and less than total available
+    if body.limit is not None and 0 < body.limit < len(records):
+        records = records[:body.limit]
+
     try:
-        if body.batch_size: #TODO: why does this exist?
-            # reuse the private batched runner via the public pipeline method but
-            # we already have records loaded, so call run_inference directly in batches
-            results = processor._Model_Processor__run_batched_inference(records, body.batch_size)
-        else:
-            results = processor.run_inference(records)
+        results = processor.run_inference(records)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
@@ -214,12 +214,13 @@ def run_inference(body: InferenceRequest):
     return {
         "session_id": body.session_id,
         "num_results": len(results),
+        "limit_applied": body.limit if body.limit and body.limit < len(session["dataset_records"]) else None,
         "summary": _numpy_safe(summary),
     }
 
 
 
-@app.get("/inference/results")
+@app.get("/inference/results") #TODO: not used?
 def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
     """
     Returns a paginated slice of inference results (without raw activation vectors
