@@ -55,7 +55,7 @@ Frontend available at: http://localhost:5173
 
 ## Usage Flow
 
-1. Upload a `.keras`, `.onnx`, `.pt`, or `.pth` model file
+1. Upload a `.keras` model file
 2. Upload a `.csv` or `.npz` test dataset
 3. Click **Run Inference**
 4. Adjust the cosine distance threshold and click **Find Similar Pairs**

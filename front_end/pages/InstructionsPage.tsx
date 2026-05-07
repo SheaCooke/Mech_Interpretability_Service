@@ -51,8 +51,7 @@ export default function InstructionsPage() {
               </h3>
               <p className="step-card-desc">
                 Drag and drop or click to upload a trained classification model.
-                Supported formats are <code>.keras</code>, <code>.onnx</code>,{" "}
-                <code>.pt</code>, and <code>.pth</code>. The model architecture
+                Supported format is only <code>.keras</code> currently. The model architecture
                 is displayed on the right — verify the layer structure and
                 parameter count before proceeding.
               </p>

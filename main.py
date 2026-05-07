@@ -2,6 +2,7 @@ import os
 import uuid
 import tempfile
 import numpy as np
+from enum import Enum
 from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from model_processing.vector_analyzer import Vector_Analyzer
 from model_processing.model_processor import Model_Processor
-
 
 app = FastAPI(title="Neural Network Analyzer API", version="1.0.0")
 
@@ -21,33 +21,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-#session store
-# Each session holds a loaded Model_Processor and optionally
-# the results of the last inference run.
+# session store
 sessions: dict[str, dict] = {} #TODO: replace with redis or a DB
-
-#TODO: switching pages cancels generate cluster graph process
-#TODO: should be able to reset run inference section
 
 #TODO: should be same as what is used in model_processor
 SUPPORTED_MODEL_EXTENSIONS = {"keras"}  #{"keras", "onnx", "pt", "pth"}
 SUPPORTED_DATASET_EXTENSIONS = {"csv", "npz"}
 
+class PredictionFilter(str, Enum):
+    ALL       = "all"
+    CORRECT   = "correct"
+    INCORRECT = "incorrect"
+
 
 class SimilarPairsRequest(BaseModel):
-    session_id: str
+    session_id:     str
     threshold_low:  float = 0.0
     threshold_high: float = 0.2
-    filter: str = "all"  # "all" | "correct" | "incorrect" #TODO: replace with enum
+    filter: PredictionFilter = PredictionFilter.ALL
 
 
 class InferenceRequest(BaseModel):
-    session_id: str
+    session_id:   str
     label_column: Optional[str] = None
-    batch_size: Optional[int] = None
-    limit: Optional[int] = None  # num records to run; None = all
-
+    batch_size:   Optional[int] = None
+    limit:        Optional[int] = None  # num records to run; None = all
 
 
 def _apply_filter(results: list[dict], filter: str) -> list[dict]:
@@ -56,6 +54,7 @@ def _apply_filter(results: list[dict], filter: str) -> list[dict]:
     if filter == "incorrect":
         return [r for r in results if r.get("correct") is False]
     return results
+
 
 def _ext(filename: str) -> str:
     return filename.rsplit(".", 1)[-1].lower()
@@ -82,7 +81,6 @@ def _numpy_safe(obj):
     return obj
 
 
-
 @app.post("/upload/model")
 async def upload_model(file: UploadFile = File(...)):
     """
@@ -97,7 +95,6 @@ async def upload_model(file: UploadFile = File(...)):
             detail=f"Unsupported model format '.{ext}'. Supported: {SUPPORTED_MODEL_EXTENSIONS}",
         )
 
-    #write upload to a named temp file that persists for the session
     tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
     try:
         contents = await file.read()
@@ -112,25 +109,24 @@ async def upload_model(file: UploadFile = File(...)):
 
     session_id = str(uuid.uuid4())
     sessions[session_id] = {
-        "processor": processor,
-        "model_tmp_path": tmp.name,
-        "model_filename": file.filename,
-        "dataset_records": None,
-        "inference_results": None,
-        "vector_analyzer": None,
+        "processor":          processor,
+        "model_tmp_path":     tmp.name,
+        "model_filename":     file.filename,
+        "dataset_records":    None,
+        "inference_results":  None,
+        "vector_analyzer":    None,
     }
 
     return {
         "session_id": session_id,
-        "filename": file.filename,
-        "model_data": _numpy_safe(processor.model_data),
+        "filename":   file.filename,
+        "model_data": _numpy_safe(processor.model_data.to_dict()),
     }
-
 
 
 @app.post("/upload/dataset")
 async def upload_dataset(
-    session_id: str,
+    session_id:   str,
     label_column: Optional[str] = None,
     file: UploadFile = File(...),
 ):
@@ -159,23 +155,19 @@ async def upload_dataset(
         os.unlink(tmp.name)
         raise HTTPException(status_code=422, detail=f"Failed to load dataset: {str(e)}")
     finally:
-        # Dataset is loaded into memory; temp file no longer needed
         if os.path.exists(tmp.name):
             os.unlink(tmp.name)
 
-    session["dataset_records"] = records
-    session["inference_results"] = None   # invalidate previous results
-    session["vector_analyzer"] = None
+    session["dataset_records"]   = records
+    session["inference_results"] = None
+    session["vector_analyzer"]   = None
 
     return {
-        "session_id": session_id,
-        "filename": file.filename,
+        "session_id":  session_id,
+        "filename":    file.filename,
         "num_records": len(records),
-        "sample": _numpy_safe(
-            [{k: v for k, v in r.items() if k != "input"} for r in records[:5]]
-        ),
+        "sample": [{"id": r.id, "label": r.label} for r in records[:5]],
     }
-
 
 
 @app.post("/inference/run")
@@ -192,7 +184,6 @@ def run_inference(body: InferenceRequest):
     processor: "Model_Processor" = session["processor"]
     records = session["dataset_records"]
 
-    # Apply record limit if provided and less than total available
     if body.limit is not None and 0 < body.limit < len(records):
         records = records[:body.limit]
 
@@ -201,22 +192,23 @@ def run_inference(body: InferenceRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
-    # Build Vector_Analyzer immediately so distance matrix is ready
-    analyzer = Vector_Analyzer(results)
+    # Vector_Analyzer and any downstream code that uses dict-style access.
+    result_dicts = processor.results_to_dicts(results)
 
-    session["inference_results"] = results
-    session["vector_analyzer"] = analyzer
+    analyzer = Vector_Analyzer(result_dicts)
 
-    # Build summary
-    summary = processor._Model_Processor__summarize_results(results)
+    # Store both: InferenceRecord list (typed) and dict list (for analysis modules)
+    session["inference_results"] = result_dicts
+    session["vector_analyzer"]   = analyzer
+
+    summary = processor.summarise(results)
 
     return {
-        "session_id": body.session_id,
-        "num_results": len(results),
+        "session_id":    body.session_id,
+        "num_results":   len(results),
         "limit_applied": body.limit if body.limit and body.limit < len(session["dataset_records"]) else None,
-        "summary": _numpy_safe(summary),
+        "summary":       _numpy_safe(summary),
     }
-
 
 
 @app.get("/inference/results") #TODO: not used?
@@ -233,8 +225,6 @@ def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
     results = session["inference_results"]
     page = results[offset: offset + limit]
 
-    # Strip raw activation arrays from the response — they are large and not
-    # needed by the frontend for display purposes.
     stripped = [
         {k: v for k, v in r.items() if k != "activations" and k != "input"}
         for r in page
@@ -242,10 +232,10 @@ def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
 
     return {
         "session_id": session_id,
-        "total": len(results),
-        "offset": offset,
-        "limit": limit,
-        "results": _numpy_safe(stripped),
+        "total":      len(results),
+        "offset":     offset,
+        "limit":      limit,
+        "results":    _numpy_safe(stripped),
     }
 
 
@@ -255,13 +245,10 @@ def similar_pairs(body: SimilarPairsRequest):
     if session["vector_analyzer"] is None:
         raise HTTPException(status_code=400, detail="No inference results available.")
 
-    # Apply filter before building a temporary analyzer
-    
     filtered = _apply_filter(session["inference_results"], body.filter)
-
     if not filtered:
         raise HTTPException(status_code=400, detail=f"No records match filter '{body.filter}'.")
-    
+
     if body.threshold_low >= body.threshold_high:
         raise HTTPException(
             status_code=400,
@@ -277,12 +264,12 @@ def similar_pairs(body: SimilarPairsRequest):
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
     return {
-        "session_id": body.session_id,
+        "session_id":     body.session_id,
         "threshold_low":  body.threshold_low,
         "threshold_high": body.threshold_high,
-        "filter": body.filter,
-        "num_pairs": len(pairs),
-        "pairs": _numpy_safe(pairs),
+        "filter":         body.filter,
+        "num_pairs":      len(pairs),
+        "pairs":          _numpy_safe(pairs),
     }
 
 
@@ -290,7 +277,7 @@ def similar_pairs(body: SimilarPairsRequest):
 def get_model_data(session_id: str):
     session = _require_session(session_id)
     processor: "Model_Processor" = session["processor"]
-    return _numpy_safe(processor.model_data)
+    return _numpy_safe(processor.model_data.to_dict())
 
 
 @app.delete("/session/{session_id}")
@@ -325,21 +312,17 @@ def cluster_plot(body: dict):
 
     return _numpy_safe({
         "session_id": session_id,
-        "filter": filter_val,
+        "filter":     filter_val,
         **plot_data,
     })
 
- 
+
 @app.get("/analysis/incorrect-records")
 def get_incorrect_records(session_id: str):
-    """
-    Returns a list of all records that were incorrectly classified,
-    for use in the layer-wise analysis record selector.
-    """
     session = _require_session(session_id)
     if session["inference_results"] is None:
         raise HTTPException(status_code=400, detail="No inference results. Run inference first.")
- 
+
     incorrect = [
         {
             "id":        r["id"],
@@ -349,54 +332,45 @@ def get_incorrect_records(session_id: str):
         for r in session["inference_results"]
         if r.get("correct") is False
     ]
- 
+
     return {
         "session_id": session_id,
-        "total": len(incorrect),
-        "records": incorrect,
+        "total":      len(incorrect),
+        "records":    incorrect,
     }
- 
- 
+
+
 @app.post("/analysis/layer-deviation")
 def layer_deviation(body: dict):
-    """
-    For a selected incorrectly-classified record, computes the cosine distance
-    between its per-layer activations and:
-      - the prototype (mean) of correct activations for the TRUE label
-      - the prototype (mean) of correct activations for the PREDICTED label
- 
-    Returns per-layer deviation values for both lines of the deviation chart.
-    """
     session_id = body.get("session_id")
     record_id  = body.get("record_id")
- 
+
     session = _require_session(session_id)
- 
+
     if session["inference_results"] is None:
         raise HTTPException(status_code=400, detail="No inference results. Run inference first.")
- 
+
     results = session["inference_results"]
- 
-    # Find the target record
+
     target = next((r for r in results if r["id"] == record_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail=f"Record '{record_id}' not found.")
- 
+
     if "layer_activations" not in target or not target["layer_activations"]:
         raise HTTPException(
             status_code=422,
             detail="Record does not contain per-layer activations. "
                    "Ensure the model was loaded and inference run with the updated Model_Processor."
         )
- 
+
     from layer_analysis import compute_prototypes, compute_layer_deviations
- 
+
     try:
-        prototypes  = compute_prototypes(results)
-        deviations  = compute_layer_deviations(target, prototypes)
+        prototypes = compute_prototypes(results)
+        deviations = compute_layer_deviations(target, prototypes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Layer deviation failed: {str(e)}")
- 
+
     return _numpy_safe({
         "session_id": session_id,
         **deviations,
