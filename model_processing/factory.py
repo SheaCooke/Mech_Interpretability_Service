@@ -12,6 +12,7 @@ immutable after the initial registrations and therefore thread-safe.
 
 from __future__ import annotations
 from .base import ModelStrategy
+from .strategies.keras_strategy import KerasStrategy
 
 
 class ModelStrategyFactory:
@@ -63,17 +64,5 @@ class ModelStrategyFactory:
         return sorted(cls._registry.keys())
 
 
-# ── Built-in registrations ────────────────────────────────────────────────────
-# Import strategies here so the registrations happen once at module load time.
-# Adding a new format requires only two lines: the import and the register call.
-
-from .strategies.keras_strategy import KerasStrategy
-
 ModelStrategyFactory.register('keras', KerasStrategy)
-
-# Future formats — uncomment as strategies are implemented:
-# from .strategies.onnx_strategy    import OnnxStrategy
-# from .strategies.pytorch_strategy import PyTorchStrategy
-# ModelStrategyFactory.register('onnx', OnnxStrategy)
-# ModelStrategyFactory.register('pt',   PyTorchStrategy)
-# ModelStrategyFactory.register('pth',  PyTorchStrategy)
+#TODO: add other model formats after implementation

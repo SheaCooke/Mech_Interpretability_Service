@@ -33,7 +33,6 @@ class Model_Processor:
         self.model      = self._strategy.load(file_path)
         self.model_data: ModelMetadata = self._strategy.extract_model_data(self.model)
 
-    # ── Public interface ──────────────────────────────────────────────────────
 
     @property
     def supported_formats(self) -> list[str]:

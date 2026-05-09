@@ -31,8 +31,6 @@ class ModelStrategy(ABC):
     pipeline sequence in run_inference() is never duplicated.
     """
 
-    # ── Lifecycle ─────────────────────────────────────────────────────────────
-
     @abstractmethod
     def load(self, file_path: str) -> Any:
         """
@@ -46,8 +44,6 @@ class ModelStrategy(ABC):
         Inspect a loaded model and return an immutable ModelMetadata snapshot.
         Called once at load time; result is shared safely across requests.
         """
-
-    # ── Template Method — inference pipeline ──────────────────────────────────
 
     def run_inference(
         self,
@@ -78,13 +74,9 @@ class ModelStrategy(ABC):
                 inf_record       = self._build_record(record, predicted, per_layer)
                 results.append(inf_record)
         finally:
-            # Always run teardown even if inference raises mid-loop
-            # (e.g. PyTorch hooks must be removed to prevent accumulation)
             self._teardown(model)
 
         return results
-
-    # ── Abstract inference steps (implemented by each strategy) ───────────────
 
     @abstractmethod
     def _prepare_input(self, raw: tuple) -> Any:
@@ -110,8 +102,7 @@ class ModelStrategy(ABC):
         Extract the predicted class index from the raw model output.
         """
 
-    # ── Optional hooks (subclasses override only what they need) ──────────────
-
+    @abstractmethod
     def _prepare(self, model: Any) -> None:
         """
         One-time setup before the inference loop begins.
@@ -119,14 +110,13 @@ class ModelStrategy(ABC):
         (e.g. building a Keras activation model, registering PyTorch hooks).
         """
 
+    @abstractmethod
     def _teardown(self, model: Any) -> None:
         """
         One-time cleanup after the inference loop completes.
         Default: no-op. Override in strategies that allocate resources in
         _prepare (e.g. removing PyTorch forward hooks).
         """
-
-    # ── Shared helper — building an InferenceRecord ───────────────────────────
 
     def _build_record(
         self,

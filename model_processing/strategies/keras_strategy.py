@@ -102,7 +102,6 @@ class KerasStrategy(ModelStrategy):
             layers               = tuple(layers),
         )
 
-    # ── Template Method steps ─────────────────────────────────────────────────
 
     def _prepare(self, model: Any) -> None:
         """

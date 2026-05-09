@@ -1,6 +1,4 @@
 """
-summariser.py
-
 Pure function for summarising inference results.
 Extracted from Model_Processor so it has no dependency on model loading
 or inference — it works on a list of InferenceRecord objects and returns
