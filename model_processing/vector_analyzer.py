@@ -37,9 +37,11 @@ class Vector_Analyzer:
     def get_distance_matrix(self, act_matrix: np.ndarray) -> np.ndarray:
         return cdist(act_matrix, act_matrix, metric='cosine')
     
-    def find_all_similar_pairs(self, threshold: float = 0.1) -> list[dict]:
+    def find_all_similar_pairs(self, low: float = 0.0, high: float = 0.2) -> list[dict]:
         # Get indices of all pairs below threshold in one vectorized call
-        rows, cols = np.where(self.distance_matrix < threshold)
+        rows, cols = np.where(
+            (self.distance_matrix >= low) & (self.distance_matrix <= high)
+        )
 
         pairs = []
         for i, j in zip(rows, cols):
@@ -64,17 +66,10 @@ class Vector_Analyzer:
 
         # Normalise before dimensionality reduction
         scaled = StandardScaler().fit_transform(self.activation_matrix)
-
-        try:    
-            reducer = umap.UMAP(n_components=2, random_state=42, metric='cosine')
-            coords  = reducer.fit_transform(scaled)
-            method  = 'UMAP'
-        except ImportError:
-            print('---- import error ----')
-            reducer = TSNE(n_components=2, random_state=42,
-                        metric='cosine', init='pca', perplexity=min(30, len(scaled) - 1))
-            coords  = reducer.fit_transform(scaled)
-            method  = 't-SNE'
+  
+        reducer = umap.UMAP(n_components=2, random_state=42, metric='cosine')
+        coords  = reducer.fit_transform(scaled)
+        method  = 'UMAP'
 
         points = []
         for i, record in enumerate(self.inference_results):

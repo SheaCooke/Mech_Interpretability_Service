@@ -32,12 +32,20 @@ export async function uploadDataset(
 }
 
 export async function runInference(
-  sessionId: string
+  sessionId: string,
+  limit?: number
 ): Promise<{ summary: InferenceSummary }> {
   return apiFetch("/inference/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId }),
+    body: JSON.stringify(
+      { 
+        session_id: sessionId,
+        // Only send limit if it is a positive number less than the total.
+        // The backend treats null/undefined as "run all records".
+        ...(limit != null && limit > 0 ? { limit } : {}),
+      }
+    ),
   });
 }
 
@@ -62,13 +70,19 @@ export interface ClusterPlotData {
 
 export async function fetchSimilarPairs(
   sessionId: string,
-  threshold: number,
-  filter: PredictionFilter  // ← add this
+  thresholdLow: number,
+  thresholdHigh: number,
+  filter: PredictionFilter
 ): Promise<{ pairs: SimilarPair[]; num_pairs: number }> {
   return apiFetch("/analysis/similar-pairs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId, threshold, filter }),
+    body: JSON.stringify({ 
+      session_id: sessionId,
+      threshold_low:  thresholdLow,
+      threshold_high: thresholdHigh,
+      filter 
+    }),
   });
 }
 

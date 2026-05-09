@@ -37,8 +37,11 @@ export default function App() {
   const [loading,          setLoading]          = useState(false);
   const [status,           setStatus]           = useState<StatusMessage | null>(null);
   const [labelColumn,      setLabelColumn]      = useState("");
-  const [threshold,        setThreshold]        = useState(0.1);
+  const [thresholdLow,  setThresholdLow]  = useState(0.0);
+  const [thresholdHigh, setThresholdHigh] = useState(0.2);
   const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
+  const [inferenceLimit, setInferenceLimit] = useState(0);
+
     // ── Layer-wise analysis state ─────────────────────────────────────────────
   const [incorrectRecords,  setIncorrectRecords]  = useState<IncorrectRecord[]>([]);
   const [deviationData,     setDeviationData]     = useState<LayerDeviationData | null>(null);
@@ -66,6 +69,7 @@ export default function App() {
     try {
       const res = await uploadDataset(sessionId, file, labelColumn || undefined);
       setDatasetMeta({ filename: res.filename, num_records: res.num_records });
+      setInferenceLimit(res.num_records); // default to all records
       setStep("inference");
       setOk(`Dataset loaded — ${res.num_records.toLocaleString()} records`);
     } catch (e: any) { setErr(e.message); }
@@ -80,7 +84,7 @@ export default function App() {
     setClusterData(null);
     setStatus({ msg: "Running inference…", type: "info" });
     try {
-      const res = await runInference(sessionId);
+      const res = await runInference(sessionId, inferenceLimit);
       setSummary(res.summary);
       setStep("analysis");
 
@@ -99,9 +103,9 @@ export default function App() {
     setPairs(null);
     setStatus({ msg: `Computing similar pairs (${predictionFilter})…`, type: "info" });
     try {
-      const res = await fetchSimilarPairs(sessionId, threshold, predictionFilter);
+      const res = await fetchSimilarPairs(sessionId, thresholdLow, thresholdHigh, predictionFilter);
       setPairs(res.pairs);
-      setOk(`Found ${res.num_pairs} similar pairs (${predictionFilter}).`);
+      setOk(`Found ${res.num_pairs} similar pairs (with filter for ${predictionFilter} inference results).`);
     } catch (e: any) { setErr(e.message); }
   }
 
@@ -165,9 +169,13 @@ export default function App() {
           <Sidebar
             step={step} loading={loading} sessionId={sessionId}
             datasetMeta={datasetMeta} labelColumn={labelColumn}
-            threshold={threshold} predictionFilter={predictionFilter}
+            inferenceLimit={inferenceLimit}
+            thresholdLow={thresholdLow}
+            thresholdHigh={thresholdHigh} 
+            predictionFilter={predictionFilter}
             onLabelColumnChange={setLabelColumn}
-            onThresholdChange={setThreshold}
+            onInferenceLimitChange={setInferenceLimit}
+            onThresholdChange={(low, high) => { setThresholdLow(low); setThresholdHigh(high); }}
             onPredictionFilterChange={setPredictionFilter}
             onModelFile={handleModelFile}
             onDatasetFile={handleDatasetFile}

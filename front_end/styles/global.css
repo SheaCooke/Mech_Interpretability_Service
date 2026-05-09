@@ -270,6 +270,104 @@ body {
   cursor: pointer;
 }
 
+/* ── Dual-thumb range slider ────────────────────────────── */
+ 
+.range-slider-root {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+ 
+.range-slider-disabled { opacity: 0.4; pointer-events: none; }
+ 
+.range-slider-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  pointer-events: none;
+}
+ 
+.range-slider-fill {
+  position: absolute;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+ 
+/* Both range inputs sit on top of each other, fully transparent */
+.range-slider-input {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  outline: none;
+  margin: 0;
+}
+ 
+/* Re-enable pointer events only on the thumb */
+.range-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  pointer-events: all;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+  transition: transform 0.1s;
+}
+ 
+.range-slider-input::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+ 
+.range-slider-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  pointer-events: all;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+ 
+/* ── Updated threshold row labels ───────────────────────── */
+ 
+.threshold-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+ 
+.threshold-sep {
+  margin: 0 3px;
+  color: var(--border);
+}
+ 
+.threshold-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-family: var(--mono);
+  color: var(--muted);
+  margin-top: 6px;
+  opacity: 0.6;
+}
+
 /* ── Status bar ─────────────────────────────────────────── */
 
 .status-bar {
@@ -1009,4 +1107,204 @@ body {
 .training-actions-grid .training-action-title {
   font-size: 11px;
   line-height: 1.4;
+}
+
+/* ── PairsPanel overhaul ────────────────────────────────── */
+ 
+.pairs-panel {
+  /* Constrain total panel height so it never dominates the page */
+  max-height: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+ 
+.pairs-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+ 
+.pairs-panel-header .panel-title {
+  flex-shrink: 0;
+  gap: 6px;
+}
+ 
+.pairs-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: rgba(124,106,247,0.12);
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+ 
+/* ── Search ─────────────────────────────────────────────── */
+ 
+.pairs-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 260px;
+}
+ 
+.pairs-search-icon {
+  position: absolute;
+  left: 9px;
+  color: var(--muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+ 
+.pairs-search-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 28px 6px 28px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+ 
+.pairs-search-input:focus       { border-color: var(--accent); }
+.pairs-search-input::placeholder { color: var(--muted); }
+ 
+.pairs-search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 3px;
+  transition: color 0.1s;
+}
+ 
+.pairs-search-clear:hover { color: var(--text); }
+ 
+/* ── Scrollable table container ─────────────────────────── */
+ 
+.pairs-scroll-container {
+  overflow-y: auto;
+  /* Fixed height — shows ~8 rows before scrolling */
+  max-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex-shrink: 1;
+}
+ 
+.pairs-scroll-container::-webkit-scrollbar       { width: 4px; }
+.pairs-scroll-container::-webkit-scrollbar-track { background: transparent; }
+.pairs-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+ 
+/* Override existing pairs-table border since container handles it */
+.pairs-scroll-container .pairs-table { font-size: 11px; }
+ 
+.pairs-scroll-container .pairs-header {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+  border-bottom: 1px solid var(--border);
+}
+ 
+/* ── Highlight match ────────────────────────────────────── */
+ 
+.pairs-highlight {
+  background: rgba(124,106,247,0.25);
+  color: var(--text);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+ 
+.pairs-id { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ 
+/* ── Pagination ─────────────────────────────────────────── */
+ 
+.pairs-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+ 
+.pairs-page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+ 
+.pairs-page-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--muted);
+}
+ 
+.pairs-page-btn:disabled { opacity: 0.35; cursor: default; }
+ 
+.pairs-page-pills {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+ 
+.pairs-page-pill {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+ 
+.pairs-page-pill:hover { color: var(--text); border-color: var(--muted); }
+ 
+.pairs-page-pill-active {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #fff !important;
+}
+ 
+.pairs-page-ellipsis {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 2px;
+  user-select: none;
+}
+ 
+.pairs-page-info {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 4px;
+  white-space: nowrap;
 }
