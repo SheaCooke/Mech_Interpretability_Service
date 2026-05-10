@@ -131,7 +131,7 @@ class KerasStrategy(ModelStrategy):
         layer_outputs = self._activation_model.predict(tensor, verbose=0)
 
         per_layer = {
-            name: output[0].tolist()
+            name: output[0].flatten().tolist()
             for name, output in zip(self._layer_names, layer_outputs)
         }
 

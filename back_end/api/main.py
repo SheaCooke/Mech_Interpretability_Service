@@ -12,8 +12,33 @@ from back_end.model_processing.layer_analysis import compute_prototypes, compute
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest
 from .utilities import apply_filter, get_extension, numpy_safe
 from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS
+import logging
+from logging.config import dictConfig
 
 
+
+dictConfig({
+  "version": 1,
+  "formatters": {
+    "default": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}
+  },
+  "handlers": {
+    "console": {"class": "logging.StreamHandler", "formatter": "default"}
+    # "file": {
+    #   "class": "logging.handlers.RotatingFileHandler",
+    #   "formatter": "default",
+    #   "filename": "logs/app.log",
+    #   "mode": "a",
+    #   "maxBytes": 10_485_760,   # 10 MB
+    #   "backupCount": 5,
+    #   "encoding": "utf-8"
+    # }
+  },
+  "root": {"level": "INFO", "handlers": ["console"]}
+})
+
+logger = logging.getLogger(__name__)
+logger.info("App starting")
 
 
 app = FastAPI(title="Neural Network Analyzer API", version="1.0.0")
@@ -42,12 +67,15 @@ async def upload_model(file: UploadFile = File(...)):
     Saves it to a temp file, loads it via Model_Processor,
     and returns a session_id for subsequent calls.
     """
+
     ext = get_extension(file.filename)
     if ext not in SUPPORTED_MODEL_EXTENSIONS: #TODO: replace
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported model format '.{ext}'. Supported: {SUPPORTED_MODEL_EXTENSIONS}",
         )
+
+    logger.info(f"user uploaded model {file.filename}")
 
     tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
     try:
@@ -62,6 +90,9 @@ async def upload_model(file: UploadFile = File(...)):
         raise HTTPException(status_code=422, detail=f"Failed to load model: {str(e)}")
 
     session_id = str(uuid.uuid4())
+
+    logger.info(f"created session {session_id}")
+    
     sessions[session_id] = {
         "processor":          processor,
         "model_tmp_path":     tmp.name,
@@ -95,6 +126,8 @@ async def upload_dataset(
             status_code=400,
             detail=f"Unsupported dataset format '.{ext}'. Supported: {SUPPORTED_DATASET_EXTENSIONS}",
         )
+    
+    logger.info(f"loaded dataset file {file.filename} for session {session_id}")
 
     tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
     try:
@@ -138,14 +171,15 @@ def run_inference(body: InferenceRequest):
     processor: "Model_Processor" = session["processor"]
     records = session["dataset_records"]
 
-    print('----------------')
-
     if body.limit is not None and 0 < body.limit < len(records):
         records = records[:body.limit]
+
+    logger.info(f"running inference for session {body.session_id}")
 
     try:
         results = processor.run_inference(records)
     except Exception as e:
+        logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
     # Vector_Analyzer and any downstream code that uses dict-style access.
@@ -211,6 +245,8 @@ def similar_pairs(body: SimilarPairsRequest):
             detail=f"threshold_low ({body.threshold_low}) must be less than "
                    f"threshold_high ({body.threshold_high})."
         )
+    
+    logger.info(f"getting similar pairs for session {body.session_id}")
 
     analyzer = Vector_Analyzer(filtered)
 

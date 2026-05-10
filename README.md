@@ -112,6 +112,7 @@ from root of repo
 - support transformer based models
 - support regression models
 - Labels in Inference Summary should have label name, not just a number. Same with labels in layer-wise analysis section
+- when searching Similar Activation Pairs, they should be sorted by relevance
 
 
 

@@ -139,6 +139,7 @@ class ModelStrategy(ABC):
 
         # Store per-layer data as a tuple of (name, tuple) pairs so the
         # InferenceRecord remains frozen/hashable
+
         layer_activations_frozen = tuple(
             (name, tuple(float(v) for v in vals))
             for name, vals in per_layer.items()
