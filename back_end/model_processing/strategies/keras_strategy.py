@@ -72,34 +72,140 @@ class KerasStrategy(ModelStrategy):
 
         return model
 
+    # Layer types whose behaviour differs at inference vs training time.
+    # These are excluded from relevant_inference so the analysis tool
+    # can correctly identify which layers participate in a forward pass.
+    _TRAINING_ONLY_LAYERS = (
+        keras.layers.Dropout,
+        keras.layers.AlphaDropout,
+        keras.layers.GaussianDropout,
+        keras.layers.GaussianNoise,
+        keras.layers.RandomTranslation,
+        keras.layers.RandomRotation,
+        keras.layers.RandomFlip,
+        keras.layers.RandomZoom,
+        keras.layers.RandomCrop,
+    )
+ 
+    # Layer types where get_weights() follows the [weight_matrix, bias] convention.
+    # For all other types (BatchNorm, LayerNorm, Embedding etc.) the weight list
+    # has a different structure and should not be reported as weight/bias shapes.
+    _WEIGHT_BIAS_LAYERS = (
+        keras.layers.Dense,
+        keras.layers.Conv1D,
+        keras.layers.Conv2D,
+        keras.layers.Conv3D,
+        keras.layers.LSTM,
+        keras.layers.GRU,
+        keras.layers.Embedding,
+    )
+    
+
+    @staticmethod
+    def _safe_model_shape(shape_attr: Any) -> Optional[tuple]:
+        """
+        Same as _safe_shape but applied to model-level input/output shapes.
+        Multi-input models return a list of shapes; wrap each in a tuple.
+        """
+        try:
+            if isinstance(shape_attr, list):
+                return tuple(tuple(s) for s in shape_attr)
+            return tuple(shape_attr)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _safe_shape(shape_attr: Any) -> Optional[tuple]:
+        """
+        Safely convert a layer shape attribute to a tuple.
+        Handles:
+          - Single shapes: (None, 28, 28) → (None, 28, 28)
+          - Multi-input/output layers that return a list of shapes:
+            [(None, 32), (None, 32)] → ((None, 32), (None, 32))
+          - Unbuilt layers or any other exception → None
+        """
+        try:
+            if isinstance(shape_attr, list):
+                # Multi-input or multi-output layer
+                return tuple(tuple(s) for s in shape_attr)
+            return tuple(shape_attr)
+        except Exception:
+            return None
+            
+    @staticmethod
+    def _safe_activation(layer: Any) -> Optional[str]:
+        """
+        Extract the activation function name from a layer.
+        Handles layers where activation is a callable, a string, or absent.
+        Returns None rather than raising for any unexpected type.
+        """
+        if not hasattr(layer, 'activation'):
+            return None
+        act = layer.activation
+        # Most layers store activation as a callable with __name__
+        if callable(act) and hasattr(act, '__name__'):
+            return act.__name__
+        # Some versions store it as a string directly
+        if isinstance(act, str):
+            return act
+        # Fallback: convert to string representation
+        try:
+            return str(act)
+        except Exception:
+            return None
+
     def extract_model_data(self, model: Any) -> ModelMetadata:
-        layers = []
+        layer_infos = []
+ 
         for layer in model.layers:
             w = layer.get_weights()
-            layers.append(LayerInfo(
+ 
+            # Weight and bias shapes are only meaningful for layer types that
+            # follow the [kernel, bias] convention. For BatchNorm, LayerNorm,
+            # and similar layers, report total param count only.
+            weight_shape = None
+            bias_shape   = None
+            num_weights  = 0
+            num_biases   = 0
+ 
+            if w:
+                if isinstance(layer, self._WEIGHT_BIAS_LAYERS):
+                    weight_shape = tuple(w[0].shape)
+                    num_weights  = w[0].size
+                    has_bias = getattr(layer, 'use_bias', False)
+                    if has_bias and len(w) > 1:
+                        bias_shape = tuple(w[1].shape)
+                        num_biases = w[1].size
+                else:
+                    # BatchNorm, LayerNorm, Embedding etc. — count all params
+                    num_weights = sum(arr.size for arr in w)
+ 
+            layer_infos.append(LayerInfo(
                 name               = layer.name,
                 type               = type(layer).__name__,
                 trainable          = layer.trainable,
-                activation         = layer.activation.__name__ if hasattr(layer, 'activation') else None,
-                num_neurons        = layer.units if hasattr(layer, 'units') else None,
-                input_shape        = tuple(layer.input_shape)  if hasattr(layer, 'input_shape')  else None,
-                output_shape       = tuple(layer.output_shape) if hasattr(layer, 'output_shape') else None,
-                weight_shape       = tuple(w[0].shape) if w else None,
-                bias_shape         = tuple(w[1].shape) if len(w) > 1 else None,
-                num_weights        = w[0].size if w else 0,
-                num_biases         = w[1].size if len(w) > 1 else 0,
-                relevant_inference = not isinstance(layer, (keras.layers.Dropout,)),
+                activation         = self._safe_activation(layer),
+                num_neurons        = getattr(layer, 'units', None),
+                input_shape        = self._safe_shape(layer.input_shape)
+                                     if hasattr(layer, 'input_shape') else None,
+                output_shape       = self._safe_shape(layer.output_shape)
+                                     if hasattr(layer, 'output_shape') else None,
+                weight_shape       = weight_shape,
+                bias_shape         = bias_shape,
+                num_weights        = num_weights,
+                num_biases         = num_biases,
+                relevant_inference = not isinstance(layer, self._TRAINING_ONLY_LAYERS),
             ))
-
+ 
         return ModelMetadata(
             format               = 'keras',
             total_params         = model.count_params(),
             trainable_params     = int(sum(tf.size(w).numpy() for w in model.trainable_weights)),
             non_trainable_params = int(sum(tf.size(w).numpy() for w in model.non_trainable_weights)),
             num_layers           = len(model.layers),
-            input_shape          = tuple(model.input_shape),
-            output_shape         = tuple(model.output_shape),
-            layers               = tuple(layers),
+            input_shape          = self._safe_model_shape(model.input_shape),
+            output_shape         = self._safe_model_shape(model.output_shape),
+            layers               = tuple(layer_infos),
         )
 
 
