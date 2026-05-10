@@ -77,15 +77,16 @@ Reading the chart reveals the layer-by-layer story of a misclassification. A tru
 This is directly actionable for training. If most misclassifications show divergence at the same layer, that layer is the primary candidate for architectural improvement. If divergence appears at the earliest layers, the model may be lacking the capacity to represent fine-grained features at that depth, or the input preprocessing may be discarding discriminative information. If divergence only appears at the final layer, the earlier layers are building reasonable representations but the classification boundary itself is poorly positioned — additional training examples near the decision boundary may be sufficient to correct the errors.
 
 ## Setup
+from root of repo
 - py --list
 - py -3.11 -m venv venv
 - source venv/bin/activate
 - pip install --upgerade pip
-- pip install -r requirements.txt
+- pip install -r back_end/requirements.txt
 
 ### Terminal 1 — backend
 - source venv/bin/activate
-- uvicorn main:app --reload --host 0.0.0.0 --port 8000
+- uvicorn back_end.api.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Terminal 2 — frontend
 - cd frontend
@@ -94,23 +95,23 @@ This is directly actionable for training. If most misclassifications show diverg
 - npm run build
 
 
-## Planned Features:
+## Planned Features and Fixes:
 - Support models from Pytorch and ONNX. Currently Keras is the only model lib supported
 - Make this project usable by an agent: expose API for uploading/inference/analysis then return the results in a way that is usable by an LLM, not just through the UI.
 - Cluster Plot hover is broken - dosen't display record ids
 - Provide option to weight outputs from different layers when performing analysis
 - sliding bar on Similarity threshold should have 2 points so you can filter for an inclusive range
 - add sliding bar to Run Inference pane to allow user to only run a subset of the data
-- MAX_DISPLAY should be replaced with max result per page. All pages contained within Similar Activation Pairs widget
-- Add filtering option to Similar Activation Pairs widget
 - caching per session to speed up switching between activation vector filtering options
 - optimizations for running inference
 - cluster plot should have filter options for different labels
 - Make the API callable from Google Colab to facilitate use while training NNs
-- support for regression models 
 - support updating parameters, or activation functions through the UI
 - selecting a record number on the similarity pane should display the record
 - similarity: more options than cosine distance (dot product)
+- support transformer based models
+- support regression models
+- Labels in Inference Summary should have label name, not just a number. Same with labels in layer-wise analysis section
 
 
 

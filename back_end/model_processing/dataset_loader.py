@@ -12,11 +12,9 @@ from __future__ import annotations
 from typing import Optional
 import numpy as np
 import pandas as pd
-
 from .types import DataRecord
+from ..common import SUPPORTED_DATASET_EXTENSIONS
 
-
-SUPPORTED_FORMATS = ['csv', 'npz']
 
 
 def load_dataset(
@@ -34,10 +32,10 @@ def load_dataset(
         ValueError: if the format is unsupported or the label column is missing
     """
     ext = file_path.rsplit('.', 1)[-1].lower()
-    if ext not in SUPPORTED_FORMATS:
+    if ext not in SUPPORTED_DATASET_EXTENSIONS:
         raise ValueError(
             f"Unsupported dataset format: .{ext}. "
-            f"Supported formats: {SUPPORTED_FORMATS}"
+            f"Supported formats: {SUPPORTED_DATASET_EXTENSIONS}"
         )
 
     loaders = {
