@@ -32,6 +32,7 @@ class KerasStrategy(ModelStrategy):
         # their own activation model rather than sharing one.
         self._activation_model = None
         self._layer_names: list[str] = []
+        self._class_names: Optional[dict[int, Any]] = None
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -221,6 +222,16 @@ class KerasStrategy(ModelStrategy):
             outputs=[layer.output for layer in model.layers],
         )
 
+    def run_inference(self, model: Any, records: list) -> list:
+        """
+        Override to build the class name map before the inference loop begins.
+        For integer-labelled datasets this is a no-op. For string/float-labelled
+        datasets it reconstructs the index→label mapping so _resolve_predicted
+        can convert argmax integers back to meaningful label values.
+        """
+        self._build_class_map(records)
+        return super().run_inference(model, records)
+
     def _prepare_input(self, raw: tuple) -> np.ndarray:
         """Add batch dimension. Keras Flatten handles any 2D/3D input shape."""
         return np.expand_dims(np.array(raw, dtype=np.float32), axis=0)
@@ -250,3 +261,40 @@ class KerasStrategy(ModelStrategy):
         """Release the activation model reference after the inference loop."""
         self._activation_model = None
         self._layer_names = []
+        self._class_names = None
+
+    def _build_class_map(self, records: list) -> None:
+        """
+        Inspect the dataset labels to determine whether a class name mapping
+        is needed. Called lazily on the first record of each inference run.
+ 
+        For integer-labelled datasets: store an empty dict (no mapping needed).
+        For string/float-labelled datasets: build {int_index: label_value}
+        by sorting the unique label values — this mirrors how the training
+        script assigns indices (alphabetical for strings, ascending for floats).
+        """
+        labels = [r.label for r in records if r.label is not None]
+        if not labels:
+            self._class_names = {}
+            return
+ 
+        sample = labels[0]
+        if isinstance(sample, int):
+            # Integer labels — predicted index IS the label, no mapping needed
+            self._class_names = {}
+            return
+ 
+        # String or float labels — sort unique values to reconstruct index order.
+        # This matches sklearn's LabelEncoder and alphabetical class ordering.
+        unique = sorted(set(labels), key=lambda x: (str(type(x)), x))
+        self._class_names = {idx: val for idx, val in enumerate(unique)}
+
+    def _resolve_predicted(self, predicted_idx: int) -> Any:
+        """
+        Map a predicted class index back to the original label type.
+        For integer datasets returns the index unchanged.
+        For string/float datasets returns the class name/value at that index.
+        """
+        if not self._class_names:
+            return predicted_idx
+        return self._class_names.get(predicted_idx, predicted_idx)

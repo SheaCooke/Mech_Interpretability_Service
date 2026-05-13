@@ -80,7 +80,7 @@ class DataRecord:
     """A single input record loaded from a dataset file."""
     id:    str
     input: tuple          # immutable; converted from np.ndarray at load time
-    label: Optional[int]
+    label: Optional[int|float|str]
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ class InferenceRecord:
     """
     id:                str
     input:             tuple
-    label:             Optional[int]
+    label:             Optional[int|float|str]
     predicted:         int
     correct:           bool
     activations:       tuple           # flat concatenated vector — for distance matrix

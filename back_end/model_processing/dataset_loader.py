@@ -12,8 +12,8 @@ from __future__ import annotations
 from typing import Optional
 import numpy as np
 import pandas as pd
-from .types import DataRecord
 from ..common import SUPPORTED_DATASET_EXTENSIONS
+from .types import DataRecord
 
 
 
@@ -63,10 +63,24 @@ def _load_csv(file_path: str, label_column: Optional[str]) -> list[DataRecord]:
             label      = None
             input_data = row.to_numpy().astype(np.float32)
 
+        # Preserve the native Python type of the label.
+        # pandas infers int, float, or str depending on the column content.
+        # Converting to int() would crash on string labels like "setosa".
+        if label is not None:
+            raw = label.item() if hasattr(label, 'item') else label
+            # Keep as int if it is a whole number float (e.g. 1.0 → 1),
+            # otherwise preserve str or non-whole float as-is
+            if isinstance(raw, float) and raw.is_integer():
+                native_label = int(raw)
+            else:
+                native_label = raw
+        else:
+            native_label = None
+
         records.append(DataRecord(
             id    = f"record_{idx}",
             input = tuple(input_data.flatten().tolist()),
-            label = int(label) if label is not None else None,
+            label = native_label,
         ))
 
     return records
@@ -90,7 +104,10 @@ def _load_npz(file_path: str, label_column: Optional[str] = None) -> list[DataRe
             # Store as nested tuples so the DataRecord remains hashable.
             # np.ndarray is not hashable; tuple is.
             input = _array_to_nested_tuple(x_test[idx].astype(np.float32)),
-            label = int(y_test[idx]) if y_test is not None else None,
+            # .item() converts numpy scalar to native Python type:
+            # np.int64 → int, np.float64 → float, np.str_ → str
+            # This correctly handles integer, float, and string label arrays.
+            label = y_test[idx].item() if y_test is not None else None,
         )
         for idx, _ in enumerate(x_test)
     ]

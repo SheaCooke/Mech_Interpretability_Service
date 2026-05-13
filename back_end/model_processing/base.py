@@ -117,6 +117,20 @@ class ModelStrategy(ABC):
         Default: no-op. Override in strategies that allocate resources in
         _prepare (e.g. removing PyTorch forward hooks).
         """
+    
+    def _resolve_predicted(self, predicted_idx: int) -> Any:
+        """
+        Convert a predicted class index (int from argmax) to a label value
+        that matches the type used in the dataset's labels.
+ 
+        Default: return the index as-is. This is correct for integer-labelled
+        datasets (MNIST, Forest Cover) where the label IS the class index.
+ 
+        Override in strategies that have access to class name mappings when
+        the dataset uses string or float labels. See KerasStrategy for the
+        implementation that infers class names from the output layer size.
+        """
+        return predicted_idx
 
     def _build_record(
         self,
@@ -127,30 +141,35 @@ class ModelStrategy(ABC):
         """
         Assemble an immutable InferenceRecord from a forward pass result.
         Shared across all strategies — lives here once, not in each subclass.
-
+ 
         The flat activations vector is built by concatenating all per-layer
         outputs, preserving forward-pass layer order. This vector is used
         by Vector_Analyzer for cosine distance and cluster analysis.
+ 
+        For datasets with string or float labels, _resolve_predicted() maps
+        the integer argmax index back to the original label type so that:
+          - correct = (predicted_label == true_label) works across types
+          - the layer-wise analysis displays meaningful label names
         """
         flat = np.concatenate([
             np.array(v, dtype=np.float32).flatten()
             for v in per_layer.values()
         ]) if per_layer else np.array([], dtype=np.float32)
-
-        # Store per-layer data as a tuple of (name, tuple) pairs so the
-        # InferenceRecord remains frozen/hashable
-
+ 
         layer_activations_frozen = tuple(
             (name, tuple(float(v) for v in vals))
             for name, vals in per_layer.items()
         )
-
+ 
+        # Resolve predicted index to the same type as the dataset labels
+        resolved_predicted = self._resolve_predicted(predicted)
+ 
         return InferenceRecord(
             id                = record.id,
             input             = record.input,
             label             = record.label,
-            predicted         = predicted,
-            correct           = predicted == record.label,
+            predicted         = resolved_predicted,
+            correct           = resolved_predicted == record.label,
             activations       = tuple(flat.tolist()),
             layer_activations = layer_activations_frozen,
         )
