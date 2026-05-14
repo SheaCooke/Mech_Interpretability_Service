@@ -1,4 +1,4 @@
-import type { ModelData, InferenceSummary, SimilarPair, PredictionFilter } from "../types";
+import type { ModelData, InferenceSummary, SimilarPair, PredictionFilter, Label } from "../types";
 
 const API_BASE = "http://localhost:8000";
 
@@ -101,13 +101,13 @@ export async function fetchClusterPlot(
  
 export interface IncorrectRecord {
   id: string;
-  label: number | null;
+  label: Label | null;
   predicted: number;
 }
  
 export interface LayerDeviationData {
   record_id: string;
-  true_label: number | null;
+  true_label: Label | null;
   predicted_label: number;
   layer_names: string[];
   true_label_deviations: (number | null)[];

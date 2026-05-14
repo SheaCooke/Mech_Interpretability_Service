@@ -11,6 +11,17 @@ interface Props {
   summary: InferenceSummary;
 }
 
+function sortedClassEntries(
+  perClass: Record<string, ClassStats>
+): [string, ClassStats][] {
+  const entries = Object.entries(perClass) as [string, ClassStats][];
+  const allNumeric = entries.every(([k]) => !isNaN(Number(k)));
+  if (allNumeric) {
+    return entries.sort(([a], [b]) => Number(a) - Number(b));
+  }
+  return entries.sort(([a], [b]) => a.localeCompare(b));
+}
+
 export default function SummaryPanel({ summary }: Props) {
   return (
     <div className="panel">
@@ -40,9 +51,12 @@ export default function SummaryPanel({ summary }: Props) {
 
       {summary.per_class_accuracy && (
         <div className="class-grid">
-          {(Object.entries(summary.per_class_accuracy) as [string, ClassStats][]).map(
+          {sortedClassEntries(summary.per_class_accuracy).map(
             ([cls, stats]) => (
               <div key={cls} className="class-cell">
+                {/* cls is always a string (JSON key) — display as-is.
+                    For integer labels like 0/1/2 it shows "0"/"1"/"2";
+                    for string labels like "setosa" it shows the name directly. */}
                 <span className="class-label">{cls}</span>
                 <div className="class-bar-track">
                   <div

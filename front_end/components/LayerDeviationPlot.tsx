@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { IncorrectRecord, LayerDeviationData } from "../api/client";
+import { Label } from "../types";
 
 interface Props {
   sessionId: string;

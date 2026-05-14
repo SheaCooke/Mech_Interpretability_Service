@@ -28,7 +28,7 @@ export interface InferenceSummary {
 
 export interface InferenceResult {
   id: string;
-  label: number | null;
+  label: Label | null;
   predicted: number;
   correct: boolean;
 }
@@ -37,8 +37,8 @@ export interface SimilarPair {
   id_a: string;
   id_b: string;
   distance: number;
-  label_a: number | null;
-  label_b: number | null;
+  label_a: Label | null;
+  label_b: Label | null;
 }
 
 export interface DatasetMeta {
@@ -70,3 +70,5 @@ export const STEP_LABELS: Record<Step, string> = {
 export type PredictionFilter = "all" | "correct" | "incorrect";
 
 export type Page = "home" | "instructions" | "interpreting"
+
+export type Label = string | number;

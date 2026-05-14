@@ -7,7 +7,7 @@ export default function InstructionsPage() {
       <div className="page-hero">
         <h1 className="page-title">Instructions</h1>
         <p className="page-subtitle">
-          NN Analyzer is a mechanistic interpretability tool for classification
+          This is a mechanistic interpretability tool for classification
           models. It lets you load a trained model, run a labelled test dataset
           through it, and explore the internal activation vectors the model
           produces — revealing <em>how</em> the model represents and separates
@@ -29,7 +29,7 @@ export default function InstructionsPage() {
           geometry.
         </p>
         <p className="doc-p">
-          NN Analyzer makes this concrete. Instead of treating the model as a
+          This project attemptes to makes this concrete. Instead of treating the model as a
           black box, you can inspect the geometry of its activation space,
           identify which records the model represents similarly regardless of
           their true label, and compare the representations of correct
