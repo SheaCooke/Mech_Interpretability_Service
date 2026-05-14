@@ -263,7 +263,7 @@ class KerasStrategy(ModelStrategy):
         self._layer_names = []
         self._class_names = None
 
-    def _build_class_map(self, records: list) -> None:
+    def _build_class_map(self, records: list) -> None: #TODO: move to base class. All strategies will need this
         """
         Inspect the dataset labels to determine whether a class name mapping
         is needed. Called lazily on the first record of each inference run.

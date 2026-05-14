@@ -468,7 +468,7 @@ body {
 
 .pairs-header {
   display: grid;
-  grid-template-columns: 1fr 1fr 60px 60px 80px;
+  grid-template-columns: 1fr 1fr minmax(60px, 120px) minmax(60px, 120px) 72px;
   padding: 6px 8px;
   color: var(--muted);
   font-size: 10px;
@@ -476,10 +476,10 @@ body {
   letter-spacing: 0.06em;
   border-bottom: 1px solid var(--border);
 }
-
+ 
 .pairs-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 60px 60px 80px;
+  grid-template-columns: 1fr 1fr minmax(60px, 120px) minmax(60px, 120px) 72px;
   padding: 5px 8px;
   border-bottom: 1px solid rgba(30, 30, 46, 0.5);
   transition: background 0.1s;

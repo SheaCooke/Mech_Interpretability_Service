@@ -98,7 +98,6 @@ from root of repo
 ## Planned Features and Fixes:
 - Support models from Pytorch and ONNX. Currently Keras is the only model lib supported
 - Make this project usable by an agent: expose API for uploading/inference/analysis then return the results in a way that is usable by an LLM, not just through the UI.
-- Cluster Plot hover is broken - dosen't display record ids
 - Provide option to weight outputs from different layers when performing analysis
 - sliding bar on Similarity threshold should have 2 points so you can filter for an inclusive range
 - add sliding bar to Run Inference pane to allow user to only run a subset of the data
@@ -113,6 +112,8 @@ from root of repo
 - support regression models
 - Labels in Inference Summary should have label name, not just a number. Same with labels in layer-wise analysis section
 - when searching Similar Activation Pairs, they should be sorted by relevance
+- more efficient data structure for displaying/processing vectors
+- dashboard for memory load / performance and progress with processing
 
 
 
