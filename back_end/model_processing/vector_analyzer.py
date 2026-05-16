@@ -55,9 +55,11 @@ class Vector_Analyzer:
         )
 
         pairs = []
-
-        for i, j in zip(rows, cols):
-            if i < j and (i < len(inference_results) and j < len(inference_results)): 
+        # distance_matrix[i][j] is the cosine distance between record i and record j
+        for i, j in zip(rows, cols): #TODO: verify the inference_results are in the correct order to support this
+            if i >= len(inference_results) or j >= len(inference_results): #filtered inf results will be less than dist matrix
+                break
+            if i < j: #i < j required to avoid duplicates
                 pairs.append({
                     'id_a':     self.id_map[i],
                     'id_b':     self.id_map[j],
