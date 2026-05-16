@@ -167,13 +167,12 @@ def run_inference(body: InferenceRequest):
     logger.info(f"running inference for session {body.session_id}")
 
     try:
-        results: list[InferenceRecord] = processor.run_inference(records)
+        results: list[InferenceRecord] = processor.run_inference(records) #TODO: replace with class that has the list[inferenceRec] and a set of ids?
     except Exception as e:
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
-    # Vector_Analyzer and any downstream code that uses dict-style access.
-    result_dicts = processor.results_to_dicts(results)
+    result_dicts = processor.results_to_dicts(results) #TODO: why is this converted to a list[dict]?
 
     analyzer = Vector_Analyzer(result_dicts)
 
@@ -197,7 +196,7 @@ def similar_pairs(body: SimilarPairsRequest):
     if session["inference_results"] is None:
         raise HTTPException(status_code=400, detail="No inference results available.")
 
-    filtered = apply_filter(session["inference_results"], body.filter)
+    filtered: list[dict] = apply_filter(session["inference_results"], body.filter)
 
     if body.threshold_low >= body.threshold_high:
         raise HTTPException(
@@ -211,7 +210,7 @@ def similar_pairs(body: SimilarPairsRequest):
     analyzer = session["vector_analyzer"]
 
     try:
-        pairs = analyzer.find_all_similar_pairs(filtered, low=body.threshold_low, high=body.threshold_high)
+        pairs: list[dict] = analyzer.find_all_similar_pairs(filtered, low=body.threshold_low, high=body.threshold_high)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 

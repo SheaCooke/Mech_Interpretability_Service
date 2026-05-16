@@ -107,7 +107,7 @@ class InferenceRecord: #TODO: use this instead of a new data structure
         """Return per-layer activations as a plain dict."""
         return {name: list(values) for name, values in self.layer_activations}
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict: 
         """Serialise to a plain dict for JSON responses and downstream analysis."""
         return {
             'id':                self.id,
