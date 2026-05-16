@@ -34,7 +34,6 @@ class KerasStrategy(ModelStrategy):
         self._layer_names: list[str] = []
         self._class_names: Optional[dict[int, Any]] = None
 
-    # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     def load(self, file_path: str) -> Any:
         """
@@ -73,9 +72,6 @@ class KerasStrategy(ModelStrategy):
 
         return model
 
-    # Layer types whose behaviour differs at inference vs training time.
-    # These are excluded from relevant_inference so the analysis tool
-    # can correctly identify which layers participate in a forward pass.
     _TRAINING_ONLY_LAYERS = (
         keras.layers.Dropout,
         keras.layers.AlphaDropout,

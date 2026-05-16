@@ -5,6 +5,10 @@ import umap
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import StandardScaler
 
+
+#TODO: does this create duplicate vectors?
+#TODO: does this take in inference results or activation vectors?
+
 class Vector_Analyzer:
     def __init__(self, inference_results: list[dict]):
         self.inference_results: list[dict] = inference_results

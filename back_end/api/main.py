@@ -63,13 +63,12 @@ def require_session(session_id: str) -> dict:
 @app.post("/upload/model")
 async def upload_model(file: UploadFile = File(...)):
     """
-    Accepts a model file (.keras, .onnx, .pt, .pth).
-    Saves it to a temp file, loads it via Model_Processor,
+    Accepts a model file, saves it to a temp file, loads it via Model_Processor,
     and returns a session_id for subsequent calls.
     """
 
     ext = get_extension(file.filename)
-    if ext not in SUPPORTED_MODEL_EXTENSIONS: #TODO: replace
+    if ext not in SUPPORTED_MODEL_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported model format '.{ext}'. Supported: {SUPPORTED_MODEL_EXTENSIONS}",
@@ -115,9 +114,6 @@ async def upload_dataset(
     label_column: Optional[str] = None,
     file: UploadFile = File(...),
 ):
-    """
-    Accepts a dataset file (.csv or .npz) and associates it with an existing session.
-    """
     session = require_session(session_id)
 
     ext = get_extension(file.filename)
@@ -152,17 +148,12 @@ async def upload_dataset(
     return {
         "session_id":  session_id,
         "filename":    file.filename,
-        "num_records": len(records),
-        "sample": [{"id": r.id, "label": r.label} for r in records[:5]],
+        "num_records": len(records)
     }
 
 
 @app.post("/inference/run")
 def run_inference(body: InferenceRequest):
-    """
-    Runs the full inference pipeline on the previously uploaded dataset.
-    Stores results in the session.
-    """
     session = require_session(body.session_id)
 
     if session["dataset_records"] is None:
@@ -201,33 +192,6 @@ def run_inference(body: InferenceRequest):
     }
 
 
-@app.get("/inference/results") #TODO: not used?
-def get_inference_results(session_id: str, limit: int = 100, offset: int = 0):
-    """
-    Returns a paginated slice of inference results (without raw activation vectors
-    to keep payload size manageable).
-    """
-    session = require_session(session_id)
-
-    if session["inference_results"] is None:
-        raise HTTPException(status_code=400, detail="No inference results available. Run inference first.")
-
-    results = session["inference_results"]
-    page = results[offset: offset + limit]
-
-    stripped = [
-        {k: v for k, v in r.items() if k != "activations" and k != "input"}
-        for r in page
-    ]
-
-    return {
-        "session_id": session_id,
-        "total":      len(results),
-        "offset":     offset,
-        "limit":      limit,
-        "results":    numpy_safe(stripped),
-    }
-
 
 @app.post("/analysis/similar-pairs")
 def similar_pairs(body: SimilarPairsRequest):
@@ -263,13 +227,6 @@ def similar_pairs(body: SimilarPairsRequest):
         "num_pairs":      len(pairs),
         "pairs":          numpy_safe(pairs),
     }
-
-
-@app.get("/model/data")
-def get_model_data(session_id: str):
-    session = require_session(session_id)
-    processor: "Model_Processor" = session["processor"]
-    return numpy_safe(processor.model_data.to_dict())
 
 
 @app.delete("/session/{session_id}")

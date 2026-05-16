@@ -17,7 +17,7 @@ from .strategies.keras_strategy import KerasStrategy
 
 class ModelStrategyFactory:
 
-    # Maps lowercase file extension → strategy class (not instance).
+    # Maps lowercase file extension to strategy class (not instance).
     # Storing classes rather than instances means each call to create()
     # produces a fresh strategy, avoiding shared mutable state between
     # concurrent requests.
