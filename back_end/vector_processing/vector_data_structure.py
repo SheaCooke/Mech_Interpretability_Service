@@ -4,4 +4,4 @@
 
 class vector_data_structure:
     def __init__(self):
-        pass
+        self.activation_vectors = None

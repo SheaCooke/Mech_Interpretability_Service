@@ -84,7 +84,7 @@ class DataRecord:
 
 
 @dataclass(frozen=True)
-class InferenceRecord:
+class InferenceRecord: #TODO: use this instead of a new data structure
     """
     The result of running a single DataRecord through a model.
     Immutable — safe to share across threads and pass between pipeline stages

@@ -10,6 +10,7 @@ from back_end.model_processing.vector_analyzer import Vector_Analyzer
 from back_end.model_processing.model_processor import Model_Processor
 from back_end.model_processing.layer_analysis import compute_prototypes, compute_layer_deviations
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest
+from ..model_processing.types import InferenceRecord
 from .utilities import apply_filter, get_extension, numpy_safe
 from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS
 import logging
@@ -142,8 +143,6 @@ async def upload_dataset(
             os.unlink(tmp.name)
 
     session["dataset_records"]   = records
-    session["inference_results"] = None
-    session["vector_analyzer"]   = None
 
     return {
         "session_id":  session_id,
@@ -159,7 +158,7 @@ def run_inference(body: InferenceRequest):
     if session["dataset_records"] is None:
         raise HTTPException(status_code=400, detail="No dataset loaded for this session. Upload a dataset first.")
 
-    processor: "Model_Processor" = session["processor"]
+    processor: Model_Processor = session["processor"]
     records = session["dataset_records"]
 
     if body.limit is not None and 0 < body.limit < len(records):
@@ -168,7 +167,7 @@ def run_inference(body: InferenceRequest):
     logger.info(f"running inference for session {body.session_id}")
 
     try:
-        results = processor.run_inference(records)
+        results: list[InferenceRecord] = processor.run_inference(records)
     except Exception as e:
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
@@ -178,9 +177,8 @@ def run_inference(body: InferenceRequest):
 
     analyzer = Vector_Analyzer(result_dicts)
 
-    # Store both: InferenceRecord list (typed) and dict list (for analysis modules)
     session["inference_results"] = result_dicts
-    session["vector_analyzer"]   = analyzer
+    session["vector_analyzer"] = analyzer
 
     summary = processor.summarise(results)
 
@@ -188,7 +186,7 @@ def run_inference(body: InferenceRequest):
         "session_id":    body.session_id,
         "num_results":   len(results),
         "limit_applied": body.limit if body.limit and body.limit < len(session["dataset_records"]) else None,
-        "summary":       numpy_safe(summary),
+        "summary":       numpy_safe(summary)
     }
 
 
@@ -196,12 +194,10 @@ def run_inference(body: InferenceRequest):
 @app.post("/analysis/similar-pairs")
 def similar_pairs(body: SimilarPairsRequest):
     session = require_session(body.session_id)
-    if session["vector_analyzer"] is None:
+    if session["inference_results"] is None:
         raise HTTPException(status_code=400, detail="No inference results available.")
 
     filtered = apply_filter(session["inference_results"], body.filter)
-    if not filtered:
-        raise HTTPException(status_code=400, detail=f"No records match filter '{body.filter}'.")
 
     if body.threshold_low >= body.threshold_high:
         raise HTTPException(
@@ -212,10 +208,10 @@ def similar_pairs(body: SimilarPairsRequest):
     
     logger.info(f"getting similar pairs for session {body.session_id}")
 
-    analyzer = Vector_Analyzer(filtered)
+    analyzer = session["vector_analyzer"]
 
     try:
-        pairs = analyzer.find_all_similar_pairs(low=body.threshold_low, high=body.threshold_high)
+        pairs = analyzer.find_all_similar_pairs(filtered, low=body.threshold_low, high=body.threshold_high)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
@@ -249,13 +245,11 @@ def cluster_plot(body: dict):
         raise HTTPException(status_code=400, detail="No inference results available.")
 
     filtered = apply_filter(session["inference_results"], filter_val)
-    if not filtered:
-        raise HTTPException(status_code=400, detail=f"No records match filter '{filter_val}'.")
 
-    analyzer = Vector_Analyzer(filtered)
+    analyzer = session["vector_analyzer"]
 
     try:
-        plot_data = analyzer.get_cluster_plot_data()
+        plot_data = analyzer.get_cluster_plot_data(filtered)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Clustering failed: {str(e)}")
 

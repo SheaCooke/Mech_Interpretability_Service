@@ -114,6 +114,7 @@ from root of repo
 - when searching Similar Activation Pairs, they should be sorted by relevance
 - more efficient data structure for displaying/processing vectors
 - dashboard for memory load / performance and progress with processing
+- way to deal with excessive memory usage: write vectors to an Avro|Parquet file during inference. name should include the session_number.extension. The delete session method should delete these temp files. Intentionally cap RAM at some number. make this configurable. (lower RAM limit -> more use of files)
 
 
 
