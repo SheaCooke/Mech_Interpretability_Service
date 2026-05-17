@@ -157,8 +157,6 @@ export default function PairsPanel({ pairs }: Props) {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 /**
  * Highlight the matched substring within a record id string.
  * Returns either a plain string or a JSX element with a highlighted span.

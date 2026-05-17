@@ -11,22 +11,18 @@ when multiple API requests share mutable state.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
+import numpy as np
 
 
 @dataclass(frozen=True)
 class LayerInfo:
-    """Metadata for a single model layer."""
+    """
+    Metadata for a single model layer. Displayed in UI
+    """
     name:               str
     type:               str
-    trainable:          bool
     activation:         Optional[str]
     num_neurons:        Optional[int]
-    input_shape:        Optional[tuple]
-    output_shape:       Optional[tuple]
-    weight_shape:       Optional[tuple]
-    bias_shape:         Optional[tuple]
-    num_weights:        int
-    num_biases:         int
     relevant_inference: bool
 
 
@@ -38,20 +34,16 @@ class ModelMetadata:
     """
     format:               str
     total_params:         int
-    trainable_params:     int
-    non_trainable_params: int
     num_layers:           int
     input_shape:          Optional[tuple]
     output_shape:         Optional[tuple]
-    layers:               tuple[LayerInfo, ...]   # tuple — immutable, not list
+    layers:               tuple[LayerInfo, ...]
 
     def to_dict(self) -> dict:
         """Serialise to a plain dict suitable for JSON responses."""
         return {
             'format':               self.format,
             'total_params':         self.total_params,
-            'trainable_params':     self.trainable_params,
-            'non_trainable_params': self.non_trainable_params,
             'num_layers':           self.num_layers,
             'input_shape':          list(self.input_shape) if self.input_shape else None,
             'output_shape':         list(self.output_shape) if self.output_shape else None,
@@ -59,15 +51,8 @@ class ModelMetadata:
                 {
                     'name':               l.name,
                     'type':               l.type,
-                    'trainable':          l.trainable,
                     'activation':         l.activation,
                     'num_neurons':        l.num_neurons,
-                    'input_shape':        list(l.input_shape) if l.input_shape else None,
-                    'output_shape':       list(l.output_shape) if l.output_shape else None,
-                    'weight_shape':       list(l.weight_shape) if l.weight_shape else None,
-                    'bias_shape':         list(l.bias_shape) if l.bias_shape else None,
-                    'num_weights':        l.num_weights,
-                    'num_biases':         l.num_biases,
                     'relevant_inference': l.relevant_inference,
                 }
                 for l in self.layers
@@ -79,7 +64,7 @@ class ModelMetadata:
 class DataRecord:
     """A single input record loaded from a dataset file."""
     id:    str
-    input: tuple          # immutable; converted from np.ndarray at load time
+    input: tuple 
     label: Optional[int|float|str]
 
 
@@ -95,20 +80,18 @@ class InferenceRecord:
     label:             Optional[int|float|str]
     predicted:         int
     correct:           bool
-    activations:       tuple           # flat concatenated vector — for distance matrix
-    layer_activations: tuple           # ((layer_name, (float, ...)), ...) — for prototype analysis
+    activations:       tuple # flat concatenated vector for distance matrix
+    layer_activations: tuple # ((layer_name, (float, ...)), ...) for prototype analysis
 
     def activations_array(self):
         """Return activations as a numpy array (lazy, not stored)."""
-        import numpy as np
         return np.array(self.activations, dtype=np.float32)
 
     def layer_activations_dict(self) -> dict[str, list[float]]:
         """Return per-layer activations as a plain dict."""
         return {name: list(values) for name, values in self.layer_activations}
 
-    def to_dict(self) -> dict:
-        """Serialise to a plain dict for JSON responses and downstream analysis."""
+    def to_dict(self) -> dict: 
         return {
             'id':                self.id,
             'input':             list(self.input),

@@ -109,7 +109,7 @@ export default function Sidebar({
               step={1}
               value={inferenceLimit}
               onChange={e => onInferenceLimitChange(parseInt(e.target.value, 10))}
-              disabled={step !== "inference" || loading}
+              disabled={(step !== "inference" && step !== "analysis") || loading}
             />
             <div className="threshold-axis">
               <span>1</span>
@@ -122,9 +122,9 @@ export default function Sidebar({
         <button
           className="btn btn-primary"
           onClick={onRunInference}
-          disabled={step !== "inference" || loading}
+          disabled={(step !== "inference" && step !== "analysis") || loading}
         >
-          {loading && step === "inference" ? "Running…" : "Run Inference"}
+          {loading && (step === "inference" || step === "analysis") ? "Running…" : "Run Inference"}
         </button>
       </section>
 

@@ -1,9 +1,3 @@
-"""
-Layer-wise analysis helpers.
-These operate directly on inference_results (list of record dicts),
-each of which must contain a 'layer_activations' key:
-  {layer_name: [float, ...], ...}
-"""
 
 import numpy as np
 from scipy.spatial.distance import cosine as cosine_distance
@@ -47,7 +41,7 @@ def compute_layer_deviations(
     prototypes: dict[str, dict[int, list[float]]],
 ) -> dict:
     """
-    For a single (incorrectly classified) record, compute the cosine distance
+    For a single incorrect record, compute the cosine distance
     between the record's activation at each layer and:
       - the prototype for the TRUE label   (correct_label_deviation)
       - the prototype for the PREDICTED label (predicted_label_deviation)

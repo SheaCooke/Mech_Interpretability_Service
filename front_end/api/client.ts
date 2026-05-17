@@ -88,7 +88,7 @@ export async function fetchSimilarPairs(
 
 export async function fetchClusterPlot(
   sessionId: string,
-  filter: PredictionFilter  // ← add this
+  filter: PredictionFilter 
 ): Promise<ClusterPlotData> {
   return apiFetch("/analysis/cluster-plot", {
     method: "POST",
@@ -97,7 +97,6 @@ export async function fetchClusterPlot(
   });
 }
 
-// ── Layer-wise analysis ───────────────────────────────────
  
 export interface IncorrectRecord {
   id: string;

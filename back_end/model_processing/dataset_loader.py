@@ -1,12 +1,3 @@
-"""
-dataset_loader.py
-
-Responsible solely for loading dataset files and converting them into
-immutable DataRecord objects. Kept separate from model loading and
-inference so that each class has a single responsibility.
-
-Supported formats: .csv, .npz
-"""
 
 from __future__ import annotations
 from typing import Optional
@@ -106,7 +97,7 @@ def _load_npz(file_path: str, label_column: Optional[str] = None) -> list[DataRe
             input = _array_to_nested_tuple(x_test[idx].astype(np.float32)),
             # .item() converts numpy scalar to native Python type:
             # np.int64 → int, np.float64 → float, np.str_ → str
-            # This correctly handles integer, float, and string label arrays.
+            # handles integer, float, and string label arrays.
             label = y_test[idx].item() if y_test is not None else None,
         )
         for idx, _ in enumerate(x_test)

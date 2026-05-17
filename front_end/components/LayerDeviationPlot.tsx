@@ -10,13 +10,11 @@ interface Props {
   loading: boolean;
 }
 
-// ── Chart constants ────────────────────────────────────────────────────────
 
 const PAD    = { top: 24, right: 24, bottom: 64, left: 52 };
-const COLOR_TRUE      = "#7c6af7"; // accent — deviation from true-label prototype
-const COLOR_PREDICTED = "#f7836a"; // accent2 — deviation from predicted-label prototype
+const COLOR_TRUE      = "#7c6af7"; // deviation from true-label prototype
+const COLOR_PREDICTED = "#f7836a"; //deviation from predicted-label prototype
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 function drawChart(
   canvas: HTMLCanvasElement,
@@ -49,7 +47,6 @@ function drawChart(
   function xOf(i: number)   { return PAD.left + (i / (n - 1)) * chartW; }
   function yOf(v: number)   { return PAD.top  + (1 - (v - minVal) / (maxVal - minVal)) * chartH; }
 
-  // ── Grid lines ────────────────────────────────────────────────────────────
   ctx.strokeStyle = "rgba(30,30,46,0.8)";
   ctx.lineWidth   = 1;
   const gridSteps = 4;
@@ -69,7 +66,6 @@ function drawChart(
     ctx.fillText(val.toFixed(2), PAD.left - 6, y);
   }
 
-  // ── Draw a line series ────────────────────────────────────────────────────
   function drawLine(values: (number | null)[], color: string) {
     ctx.strokeStyle = color;
     ctx.lineWidth   = 2;
@@ -100,7 +96,6 @@ function drawChart(
   drawLine(data.predicted_deviations,    COLOR_PREDICTED);
   drawLine(data.true_label_deviations,   COLOR_TRUE);
 
-  // ── X axis layer labels ───────────────────────────────────────────────────
   ctx.fillStyle    = "rgba(107,107,128,0.9)";
   ctx.font         = "9px 'JetBrains Mono', monospace";
   ctx.textAlign    = "center";
@@ -119,7 +114,6 @@ function drawChart(
     ctx.restore();
   }
 
-  // ── Axes ──────────────────────────────────────────────────────────────────
   ctx.strokeStyle = "rgba(30,30,46,1)";
   ctx.lineWidth   = 1;
   ctx.beginPath();
@@ -129,7 +123,6 @@ function drawChart(
   ctx.stroke();
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
 
 export default function LayerDeviationPlot({
   sessionId,
@@ -168,7 +161,6 @@ export default function LayerDeviationPlot({
     drawChart(canvas, deviationData);
   }, [deviationData]);
 
-  // ── Tooltip on hover ─────────────────────────────────────────────────────
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
     if (!canvas || !deviationData) return;
