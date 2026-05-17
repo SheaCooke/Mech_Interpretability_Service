@@ -16,7 +16,7 @@ class SimilarPairsRequest(BaseModel):
 
 
 class ClusterPlotRequest(BaseModel):
-    session_id:     str
+    session_id: str
     filter: PredictionFilter = PredictionFilter.ALL
 
 
@@ -24,4 +24,4 @@ class InferenceRequest(BaseModel):
     session_id:   str
     label_column: Optional[str] = None
     batch_size:   Optional[int] = None
-    limit:        Optional[int] = None  # num records to run; None = all
+    limit:        Optional[int] = None  #num records to run. None = all

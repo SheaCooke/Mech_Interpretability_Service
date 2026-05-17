@@ -43,7 +43,7 @@ class ModelMetadata:
     num_layers:           int
     input_shape:          Optional[tuple]
     output_shape:         Optional[tuple]
-    layers:               tuple[LayerInfo, ...]   # tuple — immutable, not list
+    layers:               tuple[LayerInfo, ...]
 
     def to_dict(self) -> dict:
         """Serialise to a plain dict suitable for JSON responses."""
@@ -79,12 +79,12 @@ class ModelMetadata:
 class DataRecord:
     """A single input record loaded from a dataset file."""
     id:    str
-    input: tuple          # immutable; converted from np.ndarray at load time
+    input: tuple 
     label: Optional[int|float|str]
 
 
 @dataclass(frozen=True)
-class InferenceRecord: #TODO: use this instead of a new data structure
+class InferenceRecord:
     """
     The result of running a single DataRecord through a model.
     Immutable — safe to share across threads and pass between pipeline stages
@@ -95,8 +95,8 @@ class InferenceRecord: #TODO: use this instead of a new data structure
     label:             Optional[int|float|str]
     predicted:         int
     correct:           bool
-    activations:       tuple           # flat concatenated vector — for distance matrix
-    layer_activations: tuple           # ((layer_name, (float, ...)), ...) — for prototype analysis
+    activations:       tuple # flat concatenated vector for distance matrix
+    layer_activations: tuple # ((layer_name, (float, ...)), ...) for prototype analysis
 
     def activations_array(self):
         """Return activations as a numpy array (lazy, not stored)."""
@@ -108,7 +108,6 @@ class InferenceRecord: #TODO: use this instead of a new data structure
         return {name: list(values) for name, values in self.layer_activations}
 
     def to_dict(self) -> dict: 
-        """Serialise to a plain dict for JSON responses and downstream analysis."""
         return {
             'id':                self.id,
             'input':             list(self.input),

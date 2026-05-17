@@ -51,17 +51,15 @@ class KerasStrategy(ModelStrategy):
             return patched_init
 
         layers_to_patch = [
-            keras.layers.Dense,
-            keras.layers.Conv2D,
-            keras.layers.LSTM,
-            keras.layers.GRU,
-            keras.layers.Embedding,
-            keras.layers.BatchNormalization,
+            cls for cls in vars(keras.layers).values()
+            if isinstance(cls, type)
+            and issubclass(cls, keras.layers.Layer)
+            and cls is not keras.layers.Layer
         ]
         originals = {layer: layer.__init__ for layer in layers_to_patch}
         for layer in layers_to_patch:
             layer.__init__ = make_patched_init(originals[layer])
-
+ 
         try:
             model = keras.saving.load_model(file_path)
         except TypeError as e:
@@ -69,7 +67,7 @@ class KerasStrategy(ModelStrategy):
         finally:
             for layer, original in originals.items():
                 layer.__init__ = original
-
+ 
         return model
 
     _TRAINING_ONLY_LAYERS = (

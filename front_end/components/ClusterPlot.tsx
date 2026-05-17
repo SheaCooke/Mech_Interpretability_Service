@@ -45,7 +45,6 @@ export default function ClusterPlot({ points, method }: Props) {
   }
 
   // Sort numerically when all labels are numeric, lexicographically otherwise.
-  // This handles int, float, and string labels correctly without hardcoding.
   const legendEntries = useMemo(() => {
     const keys = Array.from(colorMap.keys()).filter(k => k !== "__null__");
     const allNumeric = keys.length > 0 && keys.every(k => !isNaN(Number(k)));

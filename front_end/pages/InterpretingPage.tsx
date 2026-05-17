@@ -73,7 +73,6 @@ export default function InterpretingPage() {
         </p>
       </div>
 
-      {/* What is an activation vector */}
       <section className="doc-section">
         <h2 className="doc-h2">What is an Activation Vector?</h2>
         <p className="doc-p">
@@ -99,7 +98,6 @@ export default function InterpretingPage() {
         </div>
       </section>
 
-      {/* ── Cluster Plot ─────────────────────────────────────────────────────── */}
       <section className="doc-section">
         <h2 className="doc-h2">
           <Hexagon size={16} style={{ display: "inline", marginRight: 8 }} />

@@ -11,7 +11,7 @@ from back_end.model_processing.model_processor import Model_Processor
 from back_end.model_processing.layer_analysis import compute_prototypes, compute_layer_deviations
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
 from ..model_processing.types import InferenceRecord
-from .utilities import apply_filter, get_extension, numpy_safe
+from .utilities import get_extension, numpy_safe
 from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS
 import logging
 from logging.config import dictConfig
@@ -52,7 +52,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# session store
 sessions: dict[str, dict] = {} #TODO: replace with redis or a DB
 
 #TODO: move to utilities after changing how sessions are managed
@@ -63,10 +62,6 @@ def require_session(session_id: str) -> dict:
 
 @app.post("/upload/model")
 async def upload_model(file: UploadFile = File(...)):
-    """
-    Accepts a model file, saves it to a temp file, loads it via Model_Processor,
-    and returns a session_id for subsequent calls.
-    """
 
     ext = get_extension(file.filename)
     if ext not in SUPPORTED_MODEL_EXTENSIONS:
@@ -167,12 +162,12 @@ def run_inference(body: InferenceRequest):
     logger.info(f"running inference for session {body.session_id}")
 
     try:
-        results: list[InferenceRecord] = processor.run_inference(records) #TODO: replace with class that has the list[inferenceRec] and a set of ids?
+        results: list[InferenceRecord] = processor.run_inference(records)
     except Exception as e:
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
-    result_dicts = processor.results_to_dicts(results) #TODO: why is this converted to a list[dict]?
+    result_dicts = processor.results_to_dicts(results) #convert to dictionaries to support json responses
     analyzer = Vector_Analyzer(result_dicts)
 
     session["inference_results"] = result_dicts
@@ -205,10 +200,6 @@ def similar_pairs(body: SimilarPairsRequest):
 
     logger.info(f"session: {body.session_id}, found {len(session['inference_results'])} inference results to process")
 
-    #filtered: list[dict] = apply_filter(session["inference_results"], body.filter)
-    
-    #logger.info(f"getting similar pairs for session {body.session_id}. Filter: {body.filter}, results after filtering: {len(filtered)}")
-
     analyzer = session["vector_analyzer"]
 
     try:
@@ -240,13 +231,10 @@ def delete_session(session_id: str):
 @app.post("/analysis/cluster-plot")
 def cluster_plot(body: ClusterPlotRequest):
     session_id = body.session_id
-    #filter_val = body.filter
     session = require_session(session_id)
 
     if session["inference_results"] is None:
         raise HTTPException(status_code=400, detail="No inference results available.")
-
-    #filtered = apply_filter(session["inference_results"], filter_val)
 
     analyzer = session["vector_analyzer"]
 
@@ -257,8 +245,8 @@ def cluster_plot(body: ClusterPlotRequest):
 
     return numpy_safe({
         "session_id": session_id,
-        "filter":     body.filter,
-        **plot_data,
+        "filter": body.filter,
+        **plot_data
     })
 
 

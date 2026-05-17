@@ -1,14 +1,5 @@
 import numpy as np
 
-
-def apply_filter(results: list[dict], filter: str) -> list[dict]:
-    if filter == "correct":
-        return [r for r in results if r.get("correct") is True]
-    if filter == "incorrect":
-        return [r for r in results if r.get("correct") is False]
-    return results
-
-
 def get_extension(filename: str) -> str:
     return filename.rsplit(".", 1)[-1].lower()
 
