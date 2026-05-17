@@ -74,7 +74,7 @@ class Vector_Analyzer:
 
     #TODO: create a version of find_all_similar_pairs that uses a percentiles to find similarity, rather than absolute measurements
         
-    def get_cluster_plot_data(self, inference_results) -> dict:
+    def get_cluster_plot_data(self, inference_results, filter: PredictionFilter = PredictionFilter.ALL) -> dict:
         """
         Reduces activation vectors to 2D using UMAP (preferred) or t-SNE fallback,
         then returns plot-ready data points with labels and record IDs.
@@ -97,6 +97,15 @@ class Vector_Analyzer:
                 'predicted': record.get('predicted'),
                 'correct':   record.get('correct'),
             })
+
+        
+        #if the size of inference_results is changed, it will no longer match up with activation_vecors matrix
+        # need to filter results after they are created
+        if filter == PredictionFilter.INCORRECT:
+            points = [point for point in points if point['id'] in self.incorrect_ids]
+        elif filter == PredictionFilter.CORRECT:
+            points = [point for point in points if point['id'] not in self.incorrect_ids]
+            
 
         return {
             'method': method,

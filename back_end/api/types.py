@@ -15,6 +15,11 @@ class SimilarPairsRequest(BaseModel):
     filter: PredictionFilter = PredictionFilter.ALL
 
 
+class ClusterPlotRequest(BaseModel):
+    session_id:     str
+    filter: PredictionFilter = PredictionFilter.ALL
+
+
 class InferenceRequest(BaseModel):
     session_id:   str
     label_column: Optional[str] = None

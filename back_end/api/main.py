@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from back_end.model_processing.vector_analyzer import Vector_Analyzer
 from back_end.model_processing.model_processor import Model_Processor
 from back_end.model_processing.layer_analysis import compute_prototypes, compute_layer_deviations
-from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest
+from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
 from ..model_processing.types import InferenceRecord
 from .utilities import apply_filter, get_extension, numpy_safe
 from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS
@@ -238,26 +238,26 @@ def delete_session(session_id: str):
 
 
 @app.post("/analysis/cluster-plot")
-def cluster_plot(body: dict):
-    session_id = body.get("session_id")
-    filter_val = body.get("filter", "all")
+def cluster_plot(body: ClusterPlotRequest):
+    session_id = body.session_id
+    #filter_val = body.filter
     session = require_session(session_id)
 
     if session["inference_results"] is None:
         raise HTTPException(status_code=400, detail="No inference results available.")
 
-    filtered = apply_filter(session["inference_results"], filter_val)
+    #filtered = apply_filter(session["inference_results"], filter_val)
 
     analyzer = session["vector_analyzer"]
 
     try:
-        plot_data = analyzer.get_cluster_plot_data(filtered)
+        plot_data = analyzer.get_cluster_plot_data(session["inference_results"], body.filter)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Clustering failed: {str(e)}")
 
     return numpy_safe({
         "session_id": session_id,
-        "filter":     filter_val,
+        "filter":     body.filter,
         **plot_data,
     })
 
