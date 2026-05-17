@@ -97,12 +97,6 @@ class ModelStrategy(ABC):
         """
 
     @abstractmethod
-    def _get_prediction(self, raw_output: Any) -> int:
-        """
-        Extract the predicted class index from the raw model output.
-        """
-
-    @abstractmethod
     def _prepare(self, model: Any) -> None:
         """
         One-time setup before the inference loop begins.
@@ -117,7 +111,13 @@ class ModelStrategy(ABC):
         Default: no-op. Override in strategies that allocate resources in
         _prepare (e.g. removing PyTorch forward hooks).
         """
-    
+
+    def _get_prediction(self, raw_output: np.ndarray) -> int:
+        """
+        Extract the predicted class index from the raw model output.
+        """
+        return int(np.argmax(raw_output))
+        
     def _resolve_predicted(self, predicted_idx: int) -> Any:
         """
         Convert a predicted class index (int from argmax) to a label value

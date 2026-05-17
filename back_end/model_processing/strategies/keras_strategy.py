@@ -7,7 +7,6 @@ Implements the four abstract inference steps defined in ModelStrategy:
   - _prepare:       builds the Keras activation model once before the loop
   - _prepare_input: adds the batch dimension
   - _forward:       runs predict() and returns (output, per_layer dict)
-  - _get_prediction: argmax over the final layer output
   - _teardown:      no-op for Keras (no resources to release)
 
 Also implements load() and extract_model_data().
@@ -41,6 +40,7 @@ class KerasStrategy(ModelStrategy):
         except Exception as e:
             raise RuntimeError(f"Failed to load Keras model: {e}")
 
+    #TODO: replace with dynamic process that is not hard coded
     _TRAINING_ONLY_LAYERS = (
         keras.layers.Dropout,
         keras.layers.AlphaDropout,
@@ -133,11 +133,8 @@ class KerasStrategy(ModelStrategy):
 
         return layer_outputs[-1][0], per_layer
 
-    def _get_prediction(self, raw_output: np.ndarray) -> int:
-        return int(np.argmax(raw_output))
 
     def _teardown(self, model: Any) -> None:
-        """Release the activation model reference after the inference loop."""
         self._activation_model = None
         self._layer_names = []
         self._class_names = None

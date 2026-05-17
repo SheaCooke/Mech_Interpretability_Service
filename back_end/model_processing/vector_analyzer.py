@@ -7,16 +7,8 @@ from sklearn.preprocessing import StandardScaler
 from ..api.types import PredictionFilter
 
 
-#TODO: does this create duplicate vectors?
-#TODO: does this take in inference results or activation vectors?
-
-#TODO: when filtering for incorrect vectors, they dont appear on the cluster or similar pairs, but they do appear when everything
-# is displayed. probably an issue with how things are filtered.
-
 class Vector_Analyzer:
-    def __init__(self, inference_results: list[dict]): #TODO: inference results are stored in the session, dont need duplicate storage here
-        #TODO: do all these need to be computed and stored on initialization, or can they be created as needed?
-        #TODO: find way to walk through the code and see how much time/memory every step uses
+    def __init__(self, inference_results: list[dict]):
         self.id_map: np.ndarray = self.get_id_mapping(inference_results)
         self.incorrect_ids = {rec['id'] for rec in inference_results if rec['correct'] == False}
 
