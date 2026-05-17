@@ -31,6 +31,9 @@ class ModelStrategy(ABC):
     pipeline sequence in run_inference() is never duplicated.
     """
 
+    def __init__(self):
+        self._class_names: Optional[dict[int, Any]] = None
+
     @abstractmethod
     def load(self, file_path: str) -> Any:
         """
@@ -131,6 +134,32 @@ class ModelStrategy(ABC):
         implementation that infers class names from the output layer size.
         """
         return predicted_idx
+
+    def _build_class_map(self, records: list) -> None:
+        """
+        Inspect the dataset labels to determine whether a class name mapping
+        is needed. Called lazily on the first record of each inference run.
+ 
+        For integer-labelled datasets: store an empty dict (no mapping needed).
+        For string/float-labelled datasets: build {int_index: label_value}
+        by sorting the unique label values — this mirrors how the training
+        script assigns indices (alphabetical for strings, ascending for floats).
+        """
+        labels = [r.label for r in records if r.label is not None]
+        if not labels:
+            self._class_names = {}
+            return
+ 
+        sample = labels[0]
+        if isinstance(sample, int):
+            # Integer labels, predicted index IS the label, no mapping needed
+            self._class_names = {}
+            return
+ 
+        # String or float labels, sort unique values to reconstruct index order.
+        # This matches sklearn's LabelEncoder and alphabetical class ordering.
+        unique = sorted(set(labels), key=lambda x: (str(type(x)), x))
+        self._class_names = {idx: val for idx, val in enumerate(unique)}
 
     def _build_record(
         self,
