@@ -97,7 +97,6 @@ export async function fetchClusterPlot(
   });
 }
 
-// ── Layer-wise analysis ───────────────────────────────────
  
 export interface IncorrectRecord {
   id: string;

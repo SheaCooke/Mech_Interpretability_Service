@@ -173,7 +173,6 @@ def run_inference(body: InferenceRequest):
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
     result_dicts = processor.results_to_dicts(results) #TODO: why is this converted to a list[dict]?
-
     analyzer = Vector_Analyzer(result_dicts)
 
     session["inference_results"] = result_dicts
@@ -192,27 +191,28 @@ def run_inference(body: InferenceRequest):
 
 @app.post("/analysis/similar-pairs")
 def similar_pairs(body: SimilarPairsRequest):
+
     session = require_session(body.session_id)
+
     if session["inference_results"] is None:
         raise HTTPException(status_code=400, detail="No inference results available.")
-
-    logger.info(f"session: {body.session_id}, found {len(session['inference_results'])} inference results to process")
-
-    filtered: list[dict] = apply_filter(session["inference_results"], body.filter)
-
-    if body.threshold_low >= body.threshold_high:
+    elif body.threshold_low >= body.threshold_high:
         raise HTTPException(
             status_code=400,
             detail=f"threshold_low ({body.threshold_low}) must be less than "
                    f"threshold_high ({body.threshold_high})."
         )
+
+    logger.info(f"session: {body.session_id}, found {len(session['inference_results'])} inference results to process")
+
+    #filtered: list[dict] = apply_filter(session["inference_results"], body.filter)
     
-    logger.info(f"getting similar pairs for session {body.session_id}. Filter: {body.filter}, results after filtering: {len(filtered)}")
+    #logger.info(f"getting similar pairs for session {body.session_id}. Filter: {body.filter}, results after filtering: {len(filtered)}")
 
     analyzer = session["vector_analyzer"]
 
     try:
-        pairs: list[dict] = analyzer.find_all_similar_pairs(filtered, low=body.threshold_low, high=body.threshold_high)
+        pairs: list[dict] = analyzer.find_all_similar_pairs(session["inference_results"], low=body.threshold_low, high=body.threshold_high, filter=body.filter)
         logger.info(f"returning {len(pairs)} similar pairs for session>: {body.session_id}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
