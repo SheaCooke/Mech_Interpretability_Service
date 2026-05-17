@@ -24,7 +24,6 @@ import InterpretingPage from "./pages/InterpretingPage";
 import LayerDeviationPlot  from "./components/LayerDeviationPlot";
 
 export default function App() {
-    // ── Page routing ──────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState<Page>("home");
 
   const [sessionId,        setSessionId]        = useState<string | null>(null);
@@ -42,7 +41,6 @@ export default function App() {
   const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
   const [inferenceLimit, setInferenceLimit] = useState(0);
 
-    // ── Layer-wise analysis state ─────────────────────────────────────────────
   const [incorrectRecords,  setIncorrectRecords]  = useState<IncorrectRecord[]>([]);
   const [deviationData,     setDeviationData]     = useState<LayerDeviationData | null>(null);
   const [deviationLoading,  setDeviationLoading]  = useState(false);
@@ -155,7 +153,7 @@ export default function App() {
         onNavigate={setCurrentPage}
         onReset={handleReset}
       />
-            {/* Instructions page */}
+      {/* Instructions page */}
       {currentPage === "instructions" && <InstructionsPage />}
  
       {/* Interpreting results page */}

@@ -36,39 +36,10 @@ class KerasStrategy(ModelStrategy):
 
 
     def load(self, file_path: str) -> Any:
-        """
-        Load a .keras model file, patching layer __init__ methods to
-        tolerate unknown kwargs introduced by newer Keras versions
-        (e.g. quantization_config from Keras 3.1+). The patch is applied
-        and removed atomically so it cannot leak into other threads.
-        """
-        def make_patched_init(original):
-            def patched_init(self, *args, **kwargs):
-                known = original.__code__.co_varnames[:original.__code__.co_argcount]
-                for k in [k for k in kwargs if k not in known]:
-                    kwargs.pop(k)
-                original(self, *args, **kwargs)
-            return patched_init
-
-        layers_to_patch = [
-            cls for cls in vars(keras.layers).values()
-            if isinstance(cls, type)
-            and issubclass(cls, keras.layers.Layer)
-            and cls is not keras.layers.Layer
-        ]
-        originals = {layer: layer.__init__ for layer in layers_to_patch}
-        for layer in layers_to_patch:
-            layer.__init__ = make_patched_init(originals[layer])
- 
         try:
-            model = keras.saving.load_model(file_path)
-        except TypeError as e:
+            return keras.models.load_model(file_path)
+        except Exception as e:
             raise RuntimeError(f"Failed to load Keras model: {e}")
-        finally:
-            for layer, original in originals.items():
-                layer.__init__ = original
- 
-        return model
 
     _TRAINING_ONLY_LAYERS = (
         keras.layers.Dropout,
@@ -81,27 +52,10 @@ class KerasStrategy(ModelStrategy):
         keras.layers.RandomZoom,
         keras.layers.RandomCrop,
     )
- 
-    # Layer types where get_weights() follows the [weight_matrix, bias] convention.
-    # For all other types (BatchNorm, LayerNorm, Embedding etc.) the weight list
-    # has a different structure and should not be reported as weight/bias shapes.
-    _WEIGHT_BIAS_LAYERS = (
-        keras.layers.Dense,
-        keras.layers.Conv1D,
-        keras.layers.Conv2D,
-        keras.layers.Conv3D,
-        keras.layers.LSTM,
-        keras.layers.GRU,
-        keras.layers.Embedding,
-    )
     
 
     @staticmethod
     def _safe_model_shape(shape_attr: Any) -> Optional[tuple]:
-        """
-        Same as _safe_shape but applied to model-level input/output shapes.
-        Multi-input models return a list of shapes; wrap each in a tuple.
-        """
         try:
             if isinstance(shape_attr, list):
                 return tuple(tuple(s) for s in shape_attr)
@@ -109,98 +63,29 @@ class KerasStrategy(ModelStrategy):
         except Exception:
             return None
 
-    @staticmethod
-    def _safe_shape(shape_attr: Any) -> Optional[tuple]:
-        """
-        Safely convert a layer shape attribute to a tuple.
-        Handles:
-          - Single shapes: (None, 28, 28) → (None, 28, 28)
-          - Multi-input/output layers that return a list of shapes:
-            [(None, 32), (None, 32)] → ((None, 32), (None, 32))
-          - Unbuilt layers or any other exception → None
-        """
-        try:
-            if isinstance(shape_attr, list):
-                # Multi-input or multi-output layer
-                return tuple(tuple(s) for s in shape_attr)
-            return tuple(shape_attr)
-        except Exception:
-            return None
-            
-    @staticmethod
-    def _safe_activation(layer: Any) -> Optional[str]:
-        """
-        Extract the activation function name from a layer.
-        Handles layers where activation is a callable, a string, or absent.
-        Returns None rather than raising for any unexpected type.
-        """
-        if not hasattr(layer, 'activation'):
-            return None
-        act = layer.activation
-        # Most layers store activation as a callable with __name__
-        if callable(act) and hasattr(act, '__name__'):
-            return act.__name__
-        # Some versions store it as a string directly
-        if isinstance(act, str):
-            return act
-        # Fallback: convert to string representation
-        try:
-            return str(act)
-        except Exception:
-            return None
 
     def extract_model_data(self, model: Any) -> ModelMetadata:
         layer_infos = []
  
         for layer in model.layers:
-            w = layer.get_weights()
- 
-            # Weight and bias shapes are only meaningful for layer types that
-            # follow the [kernel, bias] convention. For BatchNorm, LayerNorm,
-            # and similar layers, report total param count only.
-            weight_shape = None
-            bias_shape   = None
-            num_weights  = 0
-            num_biases   = 0
- 
-            if w:
-                if isinstance(layer, self._WEIGHT_BIAS_LAYERS):
-                    weight_shape = tuple(w[0].shape)
-                    num_weights  = w[0].size
-                    has_bias = getattr(layer, 'use_bias', False)
-                    if has_bias and len(w) > 1:
-                        bias_shape = tuple(w[1].shape)
-                        num_biases = w[1].size
-                else:
-                    # BatchNorm, LayerNorm, Embedding etc. — count all params
-                    num_weights = sum(arr.size for arr in w)
- 
+
+            activation = getattr(layer, "activation", None)
+
             layer_infos.append(LayerInfo(
                 name               = layer.name,
                 type               = type(layer).__name__,
-                trainable          = layer.trainable,
-                activation         = self._safe_activation(layer),
+                activation         = activation.__name__ if activation else "N/A",
                 num_neurons        = getattr(layer, 'units', None),
-                input_shape        = self._safe_shape(layer.input_shape)
-                                     if hasattr(layer, 'input_shape') else None,
-                output_shape       = self._safe_shape(layer.output_shape)
-                                     if hasattr(layer, 'output_shape') else None,
-                weight_shape       = weight_shape,
-                bias_shape         = bias_shape,
-                num_weights        = num_weights,
-                num_biases         = num_biases,
-                relevant_inference = not isinstance(layer, self._TRAINING_ONLY_LAYERS),
+                relevant_inference = not isinstance(layer, self._TRAINING_ONLY_LAYERS)
             ))
  
         return ModelMetadata(
             format               = 'keras',
             total_params         = model.count_params(),
-            trainable_params     = int(sum(tf.size(w).numpy() for w in model.trainable_weights)),
-            non_trainable_params = int(sum(tf.size(w).numpy() for w in model.non_trainable_weights)),
             num_layers           = len(model.layers),
             input_shape          = self._safe_model_shape(model.input_shape),
             output_shape         = self._safe_model_shape(model.output_shape),
-            layers               = tuple(layer_infos),
+            layers               = tuple(layer_infos)
         )
 
 
