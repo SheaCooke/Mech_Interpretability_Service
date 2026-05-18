@@ -42,7 +42,10 @@ from root of repo
 
 
 
-<img width="1253" height="845" alt="Inference_results" src="https://github.com/user-attachments/assets/ea13dac9-dadc-4eb1-84f8-5b4ca848450d" />
+<img width="1572" height="857" alt="project_img_1" src="https://github.com/user-attachments/assets/edd98938-492d-4662-91fb-d3b6b1f6b562" />
+----
+<img width="1627" height="817" alt="project_img_2" src="https://github.com/user-attachments/assets/5decf290-07a2-4382-83dd-8ba681b0faad" />
+
 ----
 <img width="1255" height="937" alt="Cluster_Plot" src="https://github.com/user-attachments/assets/c3c25214-fcc9-42c9-8f84-f7b5ec43ff29" />
 ----
