@@ -25,11 +25,7 @@ from ..types import ModelMetadata, LayerInfo
 class KerasStrategy(ModelStrategy):
 
     def __init__(self):
-        # Activation model is built once in _prepare and held for the
-        # duration of a single run_inference call. It is not stored as
-        # instance state between calls so concurrent requests each get
-        # their own activation model rather than sharing one.
-        self._activation_model = None
+        self._activation_model = None #version of the model that produces activation vectors, instead of just final result
         self._layer_names: list[str] = []
         super().__init__()
 
@@ -101,15 +97,6 @@ class KerasStrategy(ModelStrategy):
             outputs=[layer.output for layer in model.layers],
         )
 
-    def run_inference(self, model: Any, records: list) -> list:
-        """
-        Override to build the class name map before the inference loop begins.
-        For integer-labelled datasets this is a no-op. For string/float-labelled
-        datasets it reconstructs the index→label mapping so _resolve_predicted
-        can convert argmax integers back to meaningful label values.
-        """
-        self._build_class_map(records)
-        return super().run_inference(model, records)
 
     def _prepare_input(self, raw: tuple) -> np.ndarray:
         """Add batch dimension. Keras Flatten handles any 2D/3D input shape."""
@@ -138,13 +125,3 @@ class KerasStrategy(ModelStrategy):
         self._activation_model = None
         self._layer_names = []
         self._class_names = None
-
-    def _resolve_predicted(self, predicted_idx: int) -> Any:
-        """
-        Map a predicted class index back to the original label type.
-        For integer datasets returns the index unchanged.
-        For string/float datasets returns the class name/value at that index.
-        """
-        if not self._class_names:
-            return predicted_idx
-        return self._class_names.get(predicted_idx, predicted_idx)

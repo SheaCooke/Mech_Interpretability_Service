@@ -66,6 +66,7 @@ class ModelStrategy(ABC):
                d. _build_record(...)        — assemble InferenceRecord
             3. _teardown(model)             — one-time cleanup after the loop
         """
+        self._build_class_map(records)
         self._prepare(model)
         results = []
 
@@ -123,17 +124,13 @@ class ModelStrategy(ABC):
         
     def _resolve_predicted(self, predicted_idx: int) -> Any:
         """
-        Convert a predicted class index (int from argmax) to a label value
-        that matches the type used in the dataset's labels.
- 
-        Default: return the index as-is. This is correct for integer-labelled
-        datasets (MNIST, Forest Cover) where the label IS the class index.
- 
-        Override in strategies that have access to class name mappings when
-        the dataset uses string or float labels. See KerasStrategy for the
-        implementation that infers class names from the output layer size.
+        Map a predicted class index back to the original label type.
+        For integer datasets returns the index unchanged.
+        For string/float datasets returns the class name/value at that index.
         """
-        return predicted_idx
+        if not self._class_names:
+            return predicted_idx
+        return self._class_names.get(predicted_idx, predicted_idx)
 
     def _build_class_map(self, records: list) -> None:
         """
