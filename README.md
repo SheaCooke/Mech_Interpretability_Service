@@ -5,7 +5,9 @@ This project aims to simplify the application of mechanistic interpretability pr
 
 https://cloudsecurityalliance.org/blog/2024/09/05/mechanistic-interpretability-101
 
-## Setup for backend
+## Setup
+
+### backend
 from root of repo
 - py -3.11 -m venv venv
 - source venv/bin/activate
