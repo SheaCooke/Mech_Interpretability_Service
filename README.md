@@ -47,12 +47,8 @@ from root of repo
 <img width="1572" height="857" alt="project_img_1" src="https://github.com/user-attachments/assets/edd98938-492d-4662-91fb-d3b6b1f6b562" />
 ----
 <img width="1627" height="817" alt="project_img_2" src="https://github.com/user-attachments/assets/5decf290-07a2-4382-83dd-8ba681b0faad" />
-
 ----
-<img width="1255" height="937" alt="Cluster_Plot" src="https://github.com/user-attachments/assets/c3c25214-fcc9-42c9-8f84-f7b5ec43ff29" />
+<img width="1592" height="855" alt="project_img_3" src="https://github.com/user-attachments/assets/4b2d4133-bb71-48d5-90b2-53638c3692dc" />
 ----
 <img width="1366" height="865" alt="layer-wise-analysis" src="https://github.com/user-attachments/assets/45bb8930-bd3f-47e4-81da-053384337094" />
-
-
-
 
