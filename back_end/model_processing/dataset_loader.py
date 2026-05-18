@@ -5,24 +5,16 @@ import numpy as np
 import pandas as pd
 from ..common import SUPPORTED_DATASET_EXTENSIONS
 from .types import DataRecord
+import io
 
 
 
 def load_dataset(
-    file_path:    str,
-    label_column: Optional[str] = None,
+    file_bytes: bytes,
+    ext: str,
+    label_column: Optional[str] = None
 ) -> list[DataRecord]:
-    """
-    Load a dataset file and return a list of immutable DataRecord objects.
 
-    Args:
-        file_path:    path to a .csv or .npz file
-        label_column: column name for labels in CSV files (ignored for NPZ)
-
-    Raises:
-        ValueError: if the format is unsupported or the label column is missing
-    """
-    ext = file_path.rsplit('.', 1)[-1].lower()
     if ext not in SUPPORTED_DATASET_EXTENSIONS:
         raise ValueError(
             f"Unsupported dataset format: .{ext}. "
@@ -33,11 +25,11 @@ def load_dataset(
         'csv': _load_csv,
         'npz': _load_npz,
     }
-    return loaders[ext](file_path, label_column)
+    return loaders[ext](file_bytes, label_column)
 
 
-def _load_csv(file_path: str, label_column: Optional[str]) -> list[DataRecord]:
-    df = pd.read_csv(file_path)
+def _load_csv(file_bytes: bytes, label_column: Optional[str]) -> list[DataRecord]:
+    df = pd.read_csv(io.BytesIO(file_bytes))
 
     if label_column and label_column not in df.columns:
         raise ValueError(
@@ -77,17 +69,16 @@ def _load_csv(file_path: str, label_column: Optional[str]) -> list[DataRecord]:
     return records
 
 
-def _load_npz(file_path: str, label_column: Optional[str] = None) -> list[DataRecord]:
-    data = np.load(file_path, allow_pickle=False)
+def _load_npz(file_bytes: bytes, label_column: Optional[str] = None) -> list[DataRecord]:
+    with np.load(io.BytesIO(file_bytes)) as data:
+        if 'x_test' not in data:
+            raise ValueError(
+                f"NPZ file must contain 'x_test' array. "
+                f"Found keys: {list(data.keys())}"
+            )
 
-    if 'x_test' not in data:
-        raise ValueError(
-            f"NPZ file must contain 'x_test' array. "
-            f"Found keys: {list(data.keys())}"
-        )
-
-    x_test = data['x_test']
-    y_test = data['y_test'] if 'y_test' in data else None
+        x_test = data['x_test']
+        y_test = data['y_test'] if 'y_test' in data else None
 
     return [
         DataRecord(

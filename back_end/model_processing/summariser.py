@@ -6,9 +6,6 @@ from .types import InferenceRecord
 def summarise_results(results: list[InferenceRecord]) -> dict:
     """
     Compute accuracy statistics from a list of InferenceRecord objects.
-
-    Returns a plain dict suitable for JSON serialisation. Per-class
-    breakdown is included only when ground-truth labels are present.
     """
     total      = len(results)
     has_labels = all(r.label is not None for r in results)

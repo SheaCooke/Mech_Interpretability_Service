@@ -27,8 +27,7 @@ class ModelStrategy(ABC):
     Strategy interface + Template Method base for all model formats.
 
     Subclasses implement the four abstract inference steps and the two
-    abstract lifecycle methods (load, extract_model_data). The shared
-    pipeline sequence in run_inference() is never duplicated.
+    abstract lifecycle methods (load, extract_model_data)
     """
 
     def __init__(self):

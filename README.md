@@ -23,10 +23,6 @@ from root of repo
 - Support models from Pytorch and ONNX. Currently Keras is the only model lib supported
 - Make this project usable by an agent: expose API for uploading/inference/analysis then return the results in a way that is usable by an LLM, not just through the UI.
 - Provide option to weight outputs from different layers when performing analysis
-- sliding bar on Similarity threshold should have 2 points so you can filter for an inclusive range
-- add sliding bar to Run Inference pane to allow user to only run a subset of the data
-- caching per session to speed up switching between activation vector filtering options
-- optimizations for running inference
 - cluster plot should have filter options for different labels
 - Make the API callable from Google Colab to facilitate use while training NNs
 - support updating parameters, or activation functions through the UI
@@ -40,6 +36,8 @@ from root of repo
 - dashboard for memory load / performance and progress with processing
 - way to deal with excessive memory usage: write vectors to an Avro|Parquet file during inference. name should include the session_number.extension. The delete session method should delete these temp files. Intentionally cap RAM at some number. make this configurable. (lower RAM limit -> more use of files)
 - update layer-wise analysis to either select individual records, or select entire set of misclassified labels and display all the layer-wise incorrect vectors (orange) along with the aggregate correct vector (blue)
+- way to identify and visualize circuits within the network
+- improve logging and testing
 
 
 

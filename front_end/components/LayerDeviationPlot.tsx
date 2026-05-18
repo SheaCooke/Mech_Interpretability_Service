@@ -12,9 +12,8 @@ interface Props {
 
 
 const PAD    = { top: 24, right: 24, bottom: 64, left: 52 };
-const COLOR_TRUE      = "#7c6af7"; // deviation from true-label prototype
-const COLOR_PREDICTED = "#f7836a"; //deviation from predicted-label prototype
-
+const COLOR_TRUE      = "#7c6af7"; 
+const COLOR_PREDICTED = "#f7836a"; 
 
 function drawChart(
   canvas: HTMLCanvasElement,

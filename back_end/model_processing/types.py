@@ -1,12 +1,3 @@
-"""
-types.py
-
-Immutable value objects used throughout the model processor pipeline.
-Using frozen dataclasses guarantees thread safety — Python raises
-FrozenInstanceError if anything attempts to mutate an instance after
-creation, eliminating the entire class of race condition that arises
-when multiple API requests share mutable state.
-"""
 
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -29,8 +20,7 @@ class LayerInfo:
 @dataclass(frozen=True)
 class ModelMetadata:
     """
-    Immutable summary of a loaded model's architecture and parameters.
-    Produced once at load time and shared safely across concurrent requests.
+    summary of a loaded models architecture and parameters
     """
     format:               str
     total_params:         int
@@ -72,8 +62,6 @@ class DataRecord:
 class InferenceRecord:
     """
     The result of running a single DataRecord through a model.
-    Immutable — safe to share across threads and pass between pipeline stages
-    without defensive copying.
     """
     id:                str
     input:             tuple
