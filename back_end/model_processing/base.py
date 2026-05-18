@@ -27,9 +27,11 @@ class ModelStrategy(ABC):
     Strategy interface + Template Method base for all model formats.
 
     Subclasses implement the four abstract inference steps and the two
-    abstract lifecycle methods (load, extract_model_data). The shared
-    pipeline sequence in run_inference() is never duplicated.
+    abstract lifecycle methods (load, extract_model_data)
     """
+
+    def __init__(self):
+        self._class_names: Optional[dict[int, Any]] = None
 
     @abstractmethod
     def load(self, file_path: str) -> Any:
@@ -63,6 +65,7 @@ class ModelStrategy(ABC):
                d. _build_record(...)        — assemble InferenceRecord
             3. _teardown(model)             — one-time cleanup after the loop
         """
+        self._build_class_map(records)
         self._prepare(model)
         results = []
 
@@ -120,17 +123,39 @@ class ModelStrategy(ABC):
         
     def _resolve_predicted(self, predicted_idx: int) -> Any:
         """
-        Convert a predicted class index (int from argmax) to a label value
-        that matches the type used in the dataset's labels.
- 
-        Default: return the index as-is. This is correct for integer-labelled
-        datasets (MNIST, Forest Cover) where the label IS the class index.
- 
-        Override in strategies that have access to class name mappings when
-        the dataset uses string or float labels. See KerasStrategy for the
-        implementation that infers class names from the output layer size.
+        Map a predicted class index back to the original label type.
+        For integer datasets returns the index unchanged.
+        For string/float datasets returns the class name/value at that index.
         """
-        return predicted_idx
+        if not self._class_names:
+            return predicted_idx
+        return self._class_names.get(predicted_idx, predicted_idx)
+
+    def _build_class_map(self, records: list) -> None:
+        """
+        Inspect the dataset labels to determine whether a class name mapping
+        is needed. Called lazily on the first record of each inference run.
+ 
+        For integer-labelled datasets: store an empty dict (no mapping needed).
+        For string/float-labelled datasets: build {int_index: label_value}
+        by sorting the unique label values — this mirrors how the training
+        script assigns indices (alphabetical for strings, ascending for floats).
+        """
+        labels = [r.label for r in records if r.label is not None]
+        if not labels:
+            self._class_names = {}
+            return
+ 
+        sample = labels[0]
+        if isinstance(sample, int):
+            # Integer labels, predicted index IS the label, no mapping needed
+            self._class_names = {}
+            return
+ 
+        # String or float labels, sort unique values to reconstruct index order.
+        # This matches sklearn's LabelEncoder and alphabetical class ordering.
+        unique = sorted(set(labels), key=lambda x: (str(type(x)), x))
+        self._class_names = {idx: val for idx, val in enumerate(unique)}
 
     def _build_record(
         self,

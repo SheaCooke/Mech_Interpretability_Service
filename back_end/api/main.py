@@ -10,7 +10,7 @@ from back_end.model_processing.vector_analyzer import Vector_Analyzer
 from back_end.model_processing.model_processor import Model_Processor
 from back_end.model_processing.layer_analysis import compute_prototypes, compute_layer_deviations
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
-from ..model_processing.types import InferenceRecord
+from ..model_processing.types import InferenceRecord, DataRecord
 from .utilities import get_extension, numpy_safe
 from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS
 import logging
@@ -49,7 +49,7 @@ app.add_middleware(
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 sessions: dict[str, dict] = {} #TODO: replace with redis or a DB
@@ -64,25 +64,33 @@ def require_session(session_id: str) -> dict:
 async def upload_model(file: UploadFile = File(...)):
 
     ext = get_extension(file.filename)
+
     if ext not in SUPPORTED_MODEL_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported model format '.{ext}'. Supported: {SUPPORTED_MODEL_EXTENSIONS}",
+            detail=f"Unsupported model format '.{ext}'. Supported: {SUPPORTED_MODEL_EXTENSIONS}"
         )
 
     logger.info(f"user uploaded model {file.filename}")
 
+    #functions like keras.models.load_model() require the file to be on disk, just reading the byte stream is not supported
     tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
-    try:
-        contents = await file.read()
-        tmp.write(contents)
-        tmp.flush()
-        tmp.close()
 
+    try: 
+        contents = await file.read()
+
+        tmp.write(contents)
+        tmp.flush() 
+        tmp.close() 
+        
         processor = Model_Processor(tmp.name)
-    except Exception as e:
-        os.unlink(tmp.name)
-        raise HTTPException(status_code=422, detail=f"Failed to load model: {str(e)}")
+        
+    except Exception as e: 
+        raise HTTPException(status_code=422, detail=f"Failed to load model: {str(e)}") 
+        
+    finally:
+        if os.path.exists(tmp.name):
+            os.unlink(tmp.name)
 
     session_id = str(uuid.uuid4())
 
@@ -90,11 +98,9 @@ async def upload_model(file: UploadFile = File(...)):
     
     sessions[session_id] = {
         "processor":          processor,
-        "model_tmp_path":     tmp.name,
-        "model_filename":     file.filename,
         "dataset_records":    None,
         "inference_results":  None,
-        "vector_analyzer":    None,
+        "vector_analyzer":    None
     }
 
     return {
@@ -111,33 +117,25 @@ async def upload_dataset(
     file: UploadFile = File(...),
 ):
     session = require_session(session_id)
-
     ext = get_extension(file.filename)
+
     if ext not in SUPPORTED_DATASET_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported dataset format '.{ext}'. Supported: {SUPPORTED_DATASET_EXTENSIONS}",
+            detail=f"Unsupported dataset format '.{ext}'. Supported: {SUPPORTED_DATASET_EXTENSIONS}"
         )
     
     logger.info(f"loaded dataset file {file.filename} for session {session_id}")
 
-    tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
     try:
         contents = await file.read()
-        tmp.write(contents)
-        tmp.flush()
-        tmp.close()
-
-        processor: "Model_Processor" = session["processor"]
-        records = processor.load_dataset(tmp.name, label_column)
+        processor: Model_Processor = session["processor"]
+        
+        records = processor.load_dataset(contents, ext, label_column) 
     except Exception as e:
-        os.unlink(tmp.name)
         raise HTTPException(status_code=422, detail=f"Failed to load dataset: {str(e)}")
-    finally:
-        if os.path.exists(tmp.name):
-            os.unlink(tmp.name)
 
-    session["dataset_records"]   = records
+    session["dataset_records"] = records
 
     return {
         "session_id":  session_id,
@@ -152,6 +150,8 @@ def run_inference(body: InferenceRequest):
 
     if session["dataset_records"] is None:
         raise HTTPException(status_code=400, detail="No dataset loaded for this session. Upload a dataset first.")
+    elif session["processor"] is None:
+        raise HTTPException(status_code=400, detail="No model processor object for this session. Upload a model first.")
 
     processor: Model_Processor = session["processor"]
     records = session["dataset_records"]
@@ -221,9 +221,6 @@ def similar_pairs(body: SimilarPairsRequest):
 @app.delete("/session/{session_id}")
 def delete_session(session_id: str):
     session = require_session(session_id)
-    tmp = session.get("model_tmp_path")
-    if tmp and os.path.exists(tmp):
-        os.unlink(tmp)
     del sessions[session_id]
     return {"deleted": session_id}
 
