@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .factory        import ModelStrategyFactory
-from .dataset_loader import load_dataset
+from .dataset_loader import convert_to_parquet
 from .summariser     import summarise_results
 from .types          import ModelMetadata, DataRecord, InferenceRecord
 
@@ -19,13 +19,16 @@ class Model_Processor:
         self.model      = self._strategy.load(file_path)
         self.model_data: ModelMetadata = self._strategy.extract_model_data(self.model)
 
-    def load_dataset(
-        self,
-        file_bytes: bytes,
-        ext: str,
-        label_column: Optional[str] = None
-    ) -> list[DataRecord]:
-        return load_dataset(file_bytes, ext, label_column)
+    # def load_dataset(
+    #     self,
+    #     file_bytes: bytes,
+    #     ext: str,
+    #     label_column: Optional[str] = None
+    # ) -> list[DataRecord]:
+    #     return load_dataset(file_bytes, ext, label_column)
+
+    def convert_to_parquet(self, file_extension: str, file_bytes: bytes, session_id: str, label_column: Optional[str] = None):
+        return convert_to_parquet(file_extension, file_bytes, session_id, label_column)
 
     def run_inference(
         self,

@@ -24,18 +24,6 @@ from ..types import ModelMetadata, LayerInfo
 
 class KerasStrategy(ModelStrategy):
 
-    def __init__(self):
-        self._activation_model = None #version of the model that produces activation vectors, instead of just final result
-        self._layer_names: list[str] = []
-        super().__init__()
-
-
-    def load(self, file_path: str) -> Any:
-        try:
-            return keras.models.load_model(file_path)
-        except Exception as e:
-            raise RuntimeError(f"Failed to load Keras model: {e}")
-
     #TODO: replace with dynamic process that is not hard coded
     _TRAINING_ONLY_LAYERS = (
         keras.layers.Dropout,
@@ -48,6 +36,18 @@ class KerasStrategy(ModelStrategy):
         keras.layers.RandomZoom,
         keras.layers.RandomCrop,
     )
+
+    def __init__(self):
+        self._activation_model = None #same weights as the uploaded model, just exposes internal tensors
+        self._layer_names: list[str] = []
+        super().__init__()
+
+
+    def load(self, file_path: str) -> Any:
+        try:
+            return keras.models.load_model(file_path)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Keras model: {e}")
     
 
     @staticmethod
@@ -94,7 +94,7 @@ class KerasStrategy(ModelStrategy):
         self._layer_names = [layer.name for layer in model.layers]
         self._activation_model = keras.Model(
             inputs=model.inputs,
-            outputs=[layer.output for layer in model.layers],
+            outputs=[layer.output for layer in model.layers]
         )
 
 
@@ -111,7 +111,7 @@ class KerasStrategy(ModelStrategy):
         Run a single forward pass through the activation model.
         Returns (final_layer_output, per_layer_dict).
         """
-        layer_outputs = self._activation_model.predict(tensor, verbose=0)
+        layer_outputs = self._activation_model.predict(tensor, verbose=0) #TODO: should take workers=2 or more, and use_multiprocessing=True from configs
 
         per_layer = {
             name: output[0].flatten().tolist()

@@ -22,6 +22,7 @@ from root of repo
 
 
 ## Planned Features and Fixes:
+- add support for test datasets that have a both string and numeric feature types
 - Support models from Pytorch and ONNX. Currently Keras is the only model lib supported
 - Make this project usable by an agent: expose API for uploading/inference/analysis then return the results in a way that is usable by an LLM, not just through the UI.
 - Provide option to weight outputs from different layers when performing analysis

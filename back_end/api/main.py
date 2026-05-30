@@ -12,9 +12,11 @@ from back_end.model_processing.layer_analysis import compute_prototypes, compute
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
 from ..model_processing.types import InferenceRecord, DataRecord
 from .utilities import get_extension, numpy_safe
-from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS
+from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS, PARQUET_BASE_PATH
 import logging
 from logging.config import dictConfig
+from pathlib import Path
+import shutil
 
 
 
@@ -100,21 +102,37 @@ async def upload_model(file: UploadFile = File(...)):
         "processor":          processor,
         "dataset_records":    None,
         "inference_results":  None,
-        "vector_analyzer":    None
+        "vector_analyzer":    None,
+        "x_test_path": None,
+        "y_test_path": None
     }
 
     return {
         "session_id": session_id,
         "filename":   file.filename,
-        "model_data": numpy_safe(processor.model_data.to_dict()),
+        "model_data": numpy_safe(processor.model_data.to_dict())
     }
+
+# when a dataset is loaded, replace the original file with a local NumPy memory-mapped file. first value = record #, last = label
+# 2 different files incase labels are not numeric.
+# # Use the models mapping to convert string feature values?? this assumes they used a pre-processing layer 
+# remove data record objects 
+# inference should stream in from new file
+
+#use parquet for holding the csv file and streaming the records to the model for inference
+# use 
+
+# --------
+
+# replace current similar pairs section with one that shows differences between aggregates
+# add similar pairs section for a max of 10,000 pairs (configurable)
 
 
 @app.post("/upload/dataset")
 async def upload_dataset(
     session_id:   str,
     label_column: Optional[str] = None,
-    file: UploadFile = File(...),
+    file: UploadFile = File(...)
 ):
     session = require_session(session_id)
     ext = get_extension(file.filename)
@@ -128,14 +146,27 @@ async def upload_dataset(
     logger.info(f"loaded dataset file {file.filename} for session {session_id}")
 
     try:
-        contents = await file.read()
+        session_data_dir = Path(f'{PARQUET_BASE_PATH}{session_id}')
+        session_data_dir.mkdir(exist_ok=True)
+
+        contents: bytes = await file.read()
+        extension = file.filename.split('.')[-1]
+
         processor: Model_Processor = session["processor"]
+        x_path, y_path = processor.convert_to_parquet(extension, contents, session_id, label_column)
+
+        session["x_test_path"] = x_path
+        session["y_test_path"] = y_path
+
+        # write csv/npz content to NumPy memory-mapped file because it is much faster for inference then the original
+        # contents: bytes = await file.read()
+        # processor: Model_Processor = session["processor"]
         
-        records = processor.load_dataset(contents, ext, label_column) 
+        # records = processor.load_dataset(contents, ext, label_column) #TODO: should take a file path
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to load dataset: {str(e)}")
 
-    session["dataset_records"] = records
+    session["dataset_records"] = records #TODO: store in file
 
     return {
         "session_id":  session_id,
@@ -145,7 +176,7 @@ async def upload_dataset(
 
 
 @app.post("/inference/run")
-def run_inference(body: InferenceRequest):
+def run_inference(body: InferenceRequest): #TODO: should stream from file
     session = require_session(body.session_id)
 
     if session["dataset_records"] is None:
@@ -162,7 +193,7 @@ def run_inference(body: InferenceRequest):
     logger.info(f"running inference for session {body.session_id}")
 
     try:
-        results: list[InferenceRecord] = processor.run_inference(records)
+        results: list[InferenceRecord] = processor.run_inference(records) #TODO: should take reference to file
     except Exception as e:
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
@@ -170,7 +201,7 @@ def run_inference(body: InferenceRequest):
     result_dicts = processor.results_to_dicts(results) #convert to dictionaries to support json responses
     analyzer = Vector_Analyzer(result_dicts)
 
-    session["inference_results"] = result_dicts
+    session["inference_results"] = result_dicts #TODO: should be file
     session["vector_analyzer"] = analyzer
 
     summary = processor.summarise(results)
@@ -214,12 +245,18 @@ def similar_pairs(body: SimilarPairsRequest):
         "threshold_high": body.threshold_high,
         "filter":         body.filter,
         "num_pairs":      len(pairs),
-        "pairs":          numpy_safe(pairs),
+        "pairs":          numpy_safe(pairs)
     }
 
 
 @app.delete("/session/{session_id}")
 def delete_session(session_id: str):
+
+    #delete the temp data folder
+    session_data_dir = Path(f'{PARQUET_BASE_PATH}{session_id}')
+    if session_data_dir.exists() and session_data_dir.is_dir():
+        shutil.rmtree(session_data_dir)
+        
     session = require_session(session_id)
     del sessions[session_id]
     return {"deleted": session_id}
@@ -255,9 +292,9 @@ def get_incorrect_records(session_id: str):
 
     incorrect = [
         {
-            "id":        r["id"],
-            "label":     r["label"],
-            "predicted": r["predicted"],
+            "id": r["id"],
+            "label": r["label"],
+            "predicted": r["predicted"]
         }
         for r in session["inference_results"]
         if r.get("correct") is False
@@ -266,7 +303,7 @@ def get_incorrect_records(session_id: str):
     return {
         "session_id": session_id,
         "total":      len(incorrect),
-        "records":    incorrect,
+        "records":    incorrect
     }
 
 
@@ -301,5 +338,5 @@ def layer_deviation(body: dict):
 
     return numpy_safe({
         "session_id": session_id,
-        **deviations,
+        **deviations
     })

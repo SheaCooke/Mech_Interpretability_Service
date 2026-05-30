@@ -51,7 +51,7 @@ class ModelMetadata:
 
 
 @dataclass(frozen=True)
-class DataRecord:
+class DataRecord: #TODO: store in file
     """A single input record loaded from a dataset file."""
     id:    str
     input: tuple 
@@ -68,15 +68,13 @@ class InferenceRecord:
     label:             Optional[int|float|str]
     predicted:         int
     correct:           bool
-    activations:       tuple # flat concatenated vector for distance matrix
-    layer_activations: tuple # ((layer_name, (float, ...)), ...) for prototype analysis
+    activations:       tuple 
+    layer_activations: tuple 
 
     def activations_array(self):
-        """Return activations as a numpy array (lazy, not stored)."""
         return np.array(self.activations, dtype=np.float32)
 
     def layer_activations_dict(self) -> dict[str, list[float]]:
-        """Return per-layer activations as a plain dict."""
         return {name: list(values) for name, values in self.layer_activations}
 
     def to_dict(self) -> dict: 
