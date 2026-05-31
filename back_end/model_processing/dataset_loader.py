@@ -101,7 +101,7 @@ def _array_to_nested_tuple(arr: np.ndarray):
     return tuple(_array_to_nested_tuple(row) for row in arr)
 
 
-def convert_to_parquet(file_extension: str, file_bytes: bytes, session_id: str, label_column: Optional[str] = None) -> tuple[str, str]:
+def convert_to_parquet(file_extension: str, file_bytes: bytes, session_id: str, label_column: Optional[str] = None) -> tuple[int, str, str, list]:
 
     if file_extension == 'csv':
         if not label_column:
@@ -113,10 +113,11 @@ def convert_to_parquet(file_extension: str, file_bytes: bytes, session_id: str, 
     return None
     
 
-def _npz_to_parquet(file_bytes: bytes, parquet_path_base: str, session_id: str) -> tuple[str, str]:
+def _npz_to_parquet(file_bytes: bytes, parquet_path_base: str, session_id: str) -> tuple[int, str, str, list]:
 
     x_path = f'{parquet_path_base}{session_id}\\x_test.parquet'
     y_path = f'{parquet_path_base}{session_id}\\y_test.parquet'
+    num_records = 0
 
     with np.load(io.BytesIO(file_bytes)) as data:
         if 'x_test' not in data or 'y_test' not in data:
@@ -128,6 +129,12 @@ def _npz_to_parquet(file_bytes: bytes, parquet_path_base: str, session_id: str) 
         x_test = data['x_test']
         y_test = data['y_test']
 
+        class_mapping = None
+        if 'class_names' in data:
+            class_mapping = data['class_names'].tolist()
+
+        num_records = len(x_test)
+
         if x_test.ndim == 3: #3d image data needs to be reshaped before it can be stored
             num_samples = x_test.shape[0]
             x_test = x_test.reshape(num_samples, -1)
@@ -138,11 +145,11 @@ def _npz_to_parquet(file_bytes: bytes, parquet_path_base: str, session_id: str) 
         df_x.to_parquet(x_path, index=False)
         df_y.to_parquet(y_path, index=False)
 
-    return x_path, y_test
+    return num_records, x_path, y_test, class_mapping
 
 
 
-def _csv_to_parquet(file_bytes: bytes, parquet_path_base: str, label_column: str, session_id: str) -> tuple[str, str]:
+def _csv_to_parquet(file_bytes: bytes, parquet_path_base: str, label_column: str, session_id: str) -> tuple[int, str, str]:
 
     csv_content = pd.read_csv(BytesIO(file_bytes))
 
@@ -155,6 +162,4 @@ def _csv_to_parquet(file_bytes: bytes, parquet_path_base: str, label_column: str
     x_test.to_parquet(x_path, index=False)
     y_test.to_frame().to_parquet(y_path, index=False)
 
-    return x_path, y_path
-
-
+    return len(x_test), x_path, y_path, None

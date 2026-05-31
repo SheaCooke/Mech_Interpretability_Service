@@ -153,10 +153,11 @@ async def upload_dataset(
         extension = file.filename.split('.')[-1]
 
         processor: Model_Processor = session["processor"]
-        x_path, y_path = processor.convert_to_parquet(extension, contents, session_id, label_column)
+        num_records, x_path, y_path, class_mapping = processor.convert_to_parquet(extension, contents, session_id, label_column)
 
         session["x_test_path"] = x_path
         session["y_test_path"] = y_path
+        session["class_mapping"] = class_mapping
 
         # write csv/npz content to NumPy memory-mapped file because it is much faster for inference then the original
         # contents: bytes = await file.read()
@@ -166,12 +167,12 @@ async def upload_dataset(
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to load dataset: {str(e)}")
 
-    session["dataset_records"] = records #TODO: store in file
+    #session["dataset_records"] = records #TODO: store in file
 
     return {
         "session_id":  session_id,
         "filename":    file.filename,
-        "num_records": len(records)
+        "num_records": num_records
     }
 
 
@@ -179,21 +180,21 @@ async def upload_dataset(
 def run_inference(body: InferenceRequest): #TODO: should stream from file
     session = require_session(body.session_id)
 
-    if session["dataset_records"] is None:
-        raise HTTPException(status_code=400, detail="No dataset loaded for this session. Upload a dataset first.")
+    if session["x_test_path"] is None or session["y_test_path"] is None:
+        raise HTTPException(status_code=400, detail="Path to x_test or y_test not detected.")
     elif session["processor"] is None:
         raise HTTPException(status_code=400, detail="No model processor object for this session. Upload a model first.")
 
     processor: Model_Processor = session["processor"]
-    records = session["dataset_records"]
+    #records = session["dataset_records"]
 
-    if body.limit is not None and 0 < body.limit < len(records):
-        records = records[:body.limit]
+    # if body.limit is not None and 0 < body.limit < len(records):
+    #     records = records[:body.limit]
 
     logger.info(f"running inference for session {body.session_id}")
 
     try:
-        results: list[InferenceRecord] = processor.run_inference(records) #TODO: should take reference to file
+        results: list[InferenceRecord] = processor.run_inference(session["x_test_path"], session["y_test_path"], session["class_mapping"]) #TODO: should take reference to file
     except Exception as e:
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")

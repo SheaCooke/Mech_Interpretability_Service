@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 import numpy as np
+import pyarrow.parquet as pq
 
 from .types import ModelMetadata, InferenceRecord, DataRecord
 
@@ -24,25 +25,47 @@ class ModelStrategy(ABC):
         Inspect a loaded model and return an immutable ModelMetadata snapshot
         """
 
-    def run_inference(
-        self,
-        model:    Any,
-        records:  list[DataRecord],
-    ) -> list[InferenceRecord]:
+    def run_inference(self, model: Any, x_test_path: str, y_test_path: str, class_mapping: Optional[list]) -> list[InferenceRecord]:
 
-        self._build_class_map(records)
+        self._build_class_map(class_mapping) 
         self._prepare(model)
         results = []
 
-        try:
-            for record in records:
-                tensor           = self._prepare_input(record.input)
+        x_test = pq.ParquetFile(x_test_path)
+        y_test = pq.ParquetFile(y_test_path)
+
+        batches_x = x_test.iter_batches(batch_size=100)
+        batches_y = y_test.iter_batches(batch_size=100)
+        #TODO: collect unique labels in a set while streaming in the records
+        #TODO: matches should be passed to the model using tensorflow lib
+
+        record_id = 1
+
+        for batch_x, batch_y in zip(batches_x, batches_y):
+            rows_x = batch_x.to_pylist()
+            rows_y = batch_y.to_pylist()
+
+            for rx, ry in zip(rows_x, rows_y):
+                tensor           = self._prepare_input(tuple(rx.values())) 
                 raw_out, per_layer = self._forward(model, tensor)
                 predicted        = self._get_prediction(raw_out)
-                inf_record       = self._build_record(record, predicted, per_layer)
+                inf_record       = self._build_record(record_id, tuple(rx.values()), predicted, per_layer, ry.val)
                 results.append(inf_record)
-        finally:
-            self._teardown(model)
+
+                record_id += 1
+        
+        self._teardown(model)
+
+
+        # try:
+        #     for record in records: #TODO
+        #         tensor           = self._prepare_input(record.input) 
+        #         raw_out, per_layer = self._forward(model, tensor)
+        #         predicted        = self._get_prediction(raw_out)
+        #         inf_record       = self._build_record(record, predicted, per_layer) #TODO
+        #         results.append(inf_record)
+        # finally:
+        #     self._teardown(model)
 
         return results
 
@@ -85,31 +108,26 @@ class ModelStrategy(ABC):
             return predicted_idx
         return self._class_names.get(predicted_idx, predicted_idx)
 
-    def _build_class_map(self, records: list) -> None:
+    def _build_class_map(self, labels: Optional[list]) -> None:
         """
         Inspect the dataset labels to determine whether a class name mapping is needed
         """
-        labels = [r.label for r in records if r.label is not None]
+        # labels = [r.label for r in records if r.label is not None] 
         if not labels:
             self._class_names = {}
             return
  
         if isinstance(labels[0], int):
-            # Integer labels, predicted index IS the label, no mapping needed
+            # Integer labels, predicted index is the label, no mapping needed
             self._class_names = {}
             return
  
         # string or float labels, sort unique values to reconstruct index order
+        # string labels may be handled by a pre-processing layer in the model
         unique = sorted(set(labels), key=lambda x: (str(type(x)), x))
         self._class_names = {idx: val for idx, val in enumerate(unique)}
 
-    def _build_record(
-        self,
-        record: DataRecord,
-        predicted: int,
-        per_layer: dict[str, list[float]],
-    ) -> InferenceRecord:
-
+    def _build_record(self, record_id: int, input_row, predicted: int, per_layer: dict[str, list[float]], label) -> InferenceRecord:
         flat = np.concatenate([
             np.array(v, dtype=np.float32).flatten()
             for v in per_layer.values()
@@ -124,11 +142,11 @@ class ModelStrategy(ABC):
         resolved_predicted = self._resolve_predicted(predicted)
  
         return InferenceRecord(
-            id                = record.id,
-            input             = record.input,
-            label             = record.label,
+            id                = record_id,
+            input             = input_row,
+            label             = label,
             predicted         = resolved_predicted,
-            correct           = resolved_predicted == record.label,
+            correct           = resolved_predicted == label,
             activations       = tuple(flat.tolist()),
-            layer_activations = layer_activations_frozen,
+            layer_activations = layer_activations_frozen
         )

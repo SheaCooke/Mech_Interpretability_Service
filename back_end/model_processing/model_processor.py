@@ -27,17 +27,14 @@ class Model_Processor:
     # ) -> list[DataRecord]:
     #     return load_dataset(file_bytes, ext, label_column)
 
-    def convert_to_parquet(self, file_extension: str, file_bytes: bytes, session_id: str, label_column: Optional[str] = None):
+    def convert_to_parquet(self, file_extension: str, file_bytes: bytes, session_id: str, label_column: Optional[str] = None) -> tuple[int,str,str,list]:
         return convert_to_parquet(file_extension, file_bytes, session_id, label_column)
 
-    def run_inference(
-        self,
-        records: list[DataRecord],
-    ) -> list[InferenceRecord]:
+    def run_inference(self, x_test_path: str, y_test_path: str, class_names: Optional[list]) -> list[InferenceRecord]:
         """
         Run all records through the model and return InferenceRecord objects.
         """
-        return self._strategy.run_inference(self.model, records)
+        return self._strategy.run_inference(self.model, x_test_path, y_test_path, class_names)
 
     def summarise(self, results: list[InferenceRecord]) -> dict:
         """
