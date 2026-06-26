@@ -7,6 +7,7 @@ import pyarrow.parquet as pq
 
 from .types import ModelMetadata, InferenceRecord, DataRecord
 
+logger = logging.getLogger(__name__)
 
 class ModelStrategy(ABC):
 
@@ -49,23 +50,15 @@ class ModelStrategy(ABC):
                 tensor           = self._prepare_input(tuple(rx.values())) 
                 raw_out, per_layer = self._forward(model, tensor)
                 predicted        = self._get_prediction(raw_out)
-                inf_record       = self._build_record(record_id, tuple(rx.values()), predicted, per_layer, ry.val)
+                inf_record       = self._build_record(record_id, tuple(rx.values()), predicted, per_layer, ry['val'])
                 results.append(inf_record)
 
                 record_id += 1
+            
+            if record_id % 200 == 0:
+                logger.info(f'completed inference for record number {record_id}')
         
         self._teardown(model)
-
-
-        # try:
-        #     for record in records: #TODO
-        #         tensor           = self._prepare_input(record.input) 
-        #         raw_out, per_layer = self._forward(model, tensor)
-        #         predicted        = self._get_prediction(raw_out)
-        #         inf_record       = self._build_record(record, predicted, per_layer) #TODO
-        #         results.append(inf_record)
-        # finally:
-        #     self._teardown(model)
 
         return results
 

@@ -140,12 +140,12 @@ def _npz_to_parquet(file_bytes: bytes, parquet_path_base: str, session_id: str) 
             x_test = x_test.reshape(num_samples, -1)
 
         df_x = pd.DataFrame(x_test)
-        df_y = pd.DataFrame(y_test)
+        df_y = pd.DataFrame(y_test, columns=['val']) 
 
         df_x.to_parquet(x_path, index=False)
         df_y.to_parquet(y_path, index=False)
 
-    return num_records, x_path, y_test, class_mapping
+    return num_records, x_path, y_path, class_mapping
 
 
 

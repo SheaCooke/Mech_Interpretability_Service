@@ -22,6 +22,7 @@ import shutil
 
 dictConfig({
   "version": 1,
+  "disable_existing_loggers": False,
   "formatters": {
     "default": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}
   },
@@ -100,7 +101,7 @@ async def upload_model(file: UploadFile = File(...)):
     
     sessions[session_id] = {
         "processor":          processor,
-        "dataset_records":    None,
+        "dataset_records":    None, #TODO
         "inference_results":  None,
         "vector_analyzer":    None,
         "x_test_path": None,
@@ -189,7 +190,7 @@ def run_inference(body: InferenceRequest): #TODO: should stream from file
     #records = session["dataset_records"]
 
     # if body.limit is not None and 0 < body.limit < len(records):
-    #     records = records[:body.limit]
+    #     records = records[:body.limit] TODO
 
     logger.info(f"running inference for session {body.session_id}")
 
@@ -199,6 +200,8 @@ def run_inference(body: InferenceRequest): #TODO: should stream from file
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
+    logger.info(f"produced inference results for {len(results)} records")
+
     result_dicts = processor.results_to_dicts(results) #convert to dictionaries to support json responses
     analyzer = Vector_Analyzer(result_dicts)
 
@@ -207,10 +210,12 @@ def run_inference(body: InferenceRequest): #TODO: should stream from file
 
     summary = processor.summarise(results)
 
+    logger.info(f'Created summary and vector analyzer object for session {body.session_id}')
+
     return {
         "session_id":    body.session_id,
         "num_results":   len(results),
-        "limit_applied": body.limit if body.limit and body.limit < len(session["dataset_records"]) else None,
+        "limit_applied": body.limit if body.limit else None,
         "summary":       numpy_safe(summary)
     }
 

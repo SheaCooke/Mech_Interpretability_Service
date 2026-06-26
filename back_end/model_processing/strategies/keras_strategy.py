@@ -99,8 +99,35 @@ class KerasStrategy(ModelStrategy):
 
 
     def _prepare_input(self, raw: tuple) -> np.ndarray:
-        """Add batch dimension. Keras Flatten handles any 2D/3D input shape."""
-        return np.expand_dims(np.array(raw, dtype=np.float32), axis=0)
+        """
+        Convert the raw input tuple into the tensor shape the model expects.
+
+        If the raw input is a flat 1D vector but the model's input shape is
+        multi-dimensional (e.g. (28, 28)), reshape the vector to that shape
+        before adding the batch dimension.
+        """
+        arr = np.array(raw, dtype=np.float32)
+
+        # Try to infer the model's expected input (excluding batch dim)
+        expected_shape = None
+        try:
+            inp_shape = getattr(self._activation_model, 'input_shape', None)
+            if inp_shape is None:
+                inp_shape = getattr(self._activation_model, 'inputs')[0].shape
+            # Normalize to a tuple of ints (exclude batch dimension)
+            if isinstance(inp_shape, (list, tuple)):
+                if isinstance(inp_shape[0], (list, tuple)):
+                    inp_shape = inp_shape[0]
+            if inp_shape is not None:
+                expected_shape = tuple(int(d) for d in inp_shape[1:])
+        except Exception:
+            expected_shape = None
+
+        # If we have a flat vector and an expected multi-dim shape, reshape
+        if expected_shape and arr.ndim == 1 and arr.size == int(np.prod(expected_shape)):
+            arr = arr.reshape(expected_shape)
+
+        return np.expand_dims(arr, axis=0)
 
     def _forward(
         self,
