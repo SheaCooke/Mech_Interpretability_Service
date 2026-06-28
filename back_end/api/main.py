@@ -10,7 +10,7 @@ from back_end.model_processing.vector_analyzer import Vector_Analyzer
 from back_end.model_processing.model_processor import Model_Processor
 from back_end.model_processing.layer_analysis import compute_prototypes, compute_layer_deviations
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
-from ..model_processing.types import InferenceRecord, DataRecord
+from ..model_processing.types import InferenceRecord
 from .utilities import get_extension, numpy_safe
 from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS, PARQUET_BASE_PATH
 import logging
@@ -114,20 +114,6 @@ async def upload_model(file: UploadFile = File(...)):
         "model_data": numpy_safe(processor.model_data.to_dict())
     }
 
-# when a dataset is loaded, replace the original file with a local NumPy memory-mapped file. first value = record #, last = label
-# 2 different files incase labels are not numeric.
-# # Use the models mapping to convert string feature values?? this assumes they used a pre-processing layer 
-# remove data record objects 
-# inference should stream in from new file
-
-#use parquet for holding the csv file and streaming the records to the model for inference
-# use 
-
-# --------
-
-# replace current similar pairs section with one that shows differences between aggregates
-# add similar pairs section for a max of 10,000 pairs (configurable)
-
 
 @app.post("/upload/dataset")
 async def upload_dataset(
@@ -160,15 +146,8 @@ async def upload_dataset(
         session["y_test_path"] = y_path
         session["class_mapping"] = class_mapping
 
-        # write csv/npz content to NumPy memory-mapped file because it is much faster for inference then the original
-        # contents: bytes = await file.read()
-        # processor: Model_Processor = session["processor"]
-        
-        # records = processor.load_dataset(contents, ext, label_column) #TODO: should take a file path
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to load dataset: {str(e)}")
-
-    #session["dataset_records"] = records #TODO: store in file
 
     return {
         "session_id":  session_id,
@@ -178,7 +157,7 @@ async def upload_dataset(
 
 
 @app.post("/inference/run")
-def run_inference(body: InferenceRequest): #TODO: should stream from file
+def run_inference(body: InferenceRequest): 
     session = require_session(body.session_id)
 
     if session["x_test_path"] is None or session["y_test_path"] is None:
@@ -187,10 +166,6 @@ def run_inference(body: InferenceRequest): #TODO: should stream from file
         raise HTTPException(status_code=400, detail="No model processor object for this session. Upload a model first.")
 
     processor: Model_Processor = session["processor"]
-    #records = session["dataset_records"]
-
-    # if body.limit is not None and 0 < body.limit < len(records):
-    #     records = records[:body.limit] TODO
 
     logger.info(f"running inference for session {body.session_id}")
 

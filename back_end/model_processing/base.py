@@ -6,7 +6,7 @@ import numpy as np
 import pyarrow.parquet as pq
 import logging
 
-from .types import ModelMetadata, InferenceRecord, DataRecord
+from .types import ModelMetadata, InferenceRecord
 
 logger = logging.getLogger(__name__)
 

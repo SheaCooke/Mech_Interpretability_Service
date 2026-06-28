@@ -1,15 +1,5 @@
 """
-strategies/keras_strategy.py
-
-Concrete Strategy for Keras (.keras) models.
-
-Implements the four abstract inference steps defined in ModelStrategy:
-  - _prepare:       builds the Keras activation model once before the loop
-  - _prepare_input: adds the batch dimension
-  - _forward:       runs predict() and returns (output, per_layer dict)
-  - _teardown:      no-op for Keras (no resources to release)
-
-Also implements load() and extract_model_data().
+Processing for .keras model files
 """
 
 from __future__ import annotations
@@ -86,11 +76,6 @@ class KerasStrategy(ModelStrategy):
 
 
     def _prepare(self, model: Any) -> None:
-        """
-        Build the activation model once before the inference loop.
-        Keras allows outputting every layer's tensor in a single predict()
-        call by constructing a Model with multiple outputs.
-        """
         self._layer_names = [layer.name for layer in model.layers]
         self._activation_model = keras.Model(
             inputs=model.inputs,
@@ -101,10 +86,6 @@ class KerasStrategy(ModelStrategy):
     def _prepare_input(self, raw: tuple) -> np.ndarray:
         """
         Convert the raw input tuple into the tensor shape the model expects.
-
-        If the raw input is a flat 1D vector but the model's input shape is
-        multi-dimensional (e.g. (28, 28)), reshape the vector to that shape
-        before adding the batch dimension.
         """
         arr = np.array(raw, dtype=np.float32)
 

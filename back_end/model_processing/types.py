@@ -51,17 +51,9 @@ class ModelMetadata:
 
 
 @dataclass(frozen=True)
-class DataRecord: #TODO: store in file
-    """A single input record loaded from a dataset file."""
-    id:    str
-    input: tuple 
-    label: Optional[int|float|str]
-
-
-@dataclass(frozen=True)
 class InferenceRecord:
     """
-    The result of running a single DataRecord through a model.
+    The result of running a single test record through a model.
     """
     id:                str
     input:             tuple
