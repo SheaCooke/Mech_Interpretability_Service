@@ -1,34 +1,16 @@
-"""
-base.py
-
-Abstract base class that defines:
-
-  1. The Strategy interface — every concrete strategy (Keras, ONNX, PyTorch)
-     must implement load(), extract_model_data(), and the four abstract steps
-     of the inference pipeline.
-
-  2. The Template Method for inference — run_inference() defines the fixed
-     sequence (prepare → loop → forward → build record → teardown) and calls
-     abstract methods for the steps that vary by format. This means the
-     pipeline structure lives in exactly one place and subclasses only override
-     what is different for their format.
-"""
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 import numpy as np
+import pyarrow.parquet as pq
+import logging
 
-from .types import ModelMetadata, InferenceRecord, DataRecord
+from .types import ModelMetadata, InferenceRecord
 
+logger = logging.getLogger(__name__)
 
 class ModelStrategy(ABC):
-    """
-    Strategy interface + Template Method base for all model formats.
-
-    Subclasses implement the four abstract inference steps and the two
-    abstract lifecycle methods (load, extract_model_data)
-    """
 
     def __init__(self):
         self._class_names: Optional[dict[int, Any]] = None
@@ -36,48 +18,58 @@ class ModelStrategy(ABC):
     @abstractmethod
     def load(self, file_path: str) -> Any:
         """
-        Load a model from disk and return the framework-native model object.
-        Should raise RuntimeError with a clear message on failure.
+        Load a model and return the frameworks model object
         """
 
     @abstractmethod
     def extract_model_data(self, model: Any) -> ModelMetadata:
         """
-        Inspect a loaded model and return an immutable ModelMetadata snapshot.
-        Called once at load time; result is shared safely across requests.
+        Inspect a loaded model and return an immutable ModelMetadata snapshot
         """
 
-    def run_inference(
-        self,
-        model:    Any,
-        records:  list[DataRecord],
-    ) -> list[InferenceRecord]:
-        """
-        Fixed inference pipeline sequence. Subclasses customise behaviour
-        by overriding the four abstract steps below, not this method.
+    def run_inference(self, model: Any, x_test_path: str, y_test_path: str, class_mapping: Optional[list], record_limit: int) -> list[InferenceRecord]:
 
-        Steps:
-            1. _prepare(model)              — one-time setup before the loop
-            2. for each record:
-               a. _prepare_input(raw)       — reshape/cast to model's expected format
-               b. _forward(model, tensor)   — forward pass, returns (output, per_layer)
-               c. _get_prediction(output)   — extract predicted class index
-               d. _build_record(...)        — assemble InferenceRecord
-            3. _teardown(model)             — one-time cleanup after the loop
-        """
-        self._build_class_map(records)
+        self._build_class_map(class_mapping) 
         self._prepare(model)
         results = []
 
-        try:
-            for record in records:
-                tensor           = self._prepare_input(record.input)
+        x_test = pq.ParquetFile(x_test_path)
+        y_test = pq.ParquetFile(y_test_path)
+
+        batches_x = x_test.iter_batches(batch_size=100)
+        batches_y = y_test.iter_batches(batch_size=100)
+        #TODO: collect unique labels in a set while streaming in the records
+        #TODO: matches should be passed to the model using tensorflow lib
+
+        record_id = 1
+        at_limit = False
+
+        logger.info(f"Starting inference for {record_limit} records")
+
+        for batch_x, batch_y in zip(batches_x, batches_y):
+            rows_x = batch_x.to_pylist()
+            rows_y = batch_y.to_pylist()
+
+            for rx, ry in zip(rows_x, rows_y):
+                tensor           = self._prepare_input(tuple(rx.values())) 
                 raw_out, per_layer = self._forward(model, tensor)
                 predicted        = self._get_prediction(raw_out)
-                inf_record       = self._build_record(record, predicted, per_layer)
+                inf_record       = self._build_record(record_id, tuple(rx.values()), predicted, per_layer, ry['val'])
                 results.append(inf_record)
-        finally:
-            self._teardown(model)
+
+                record_id += 1
+
+                if record_id >= record_limit:
+                    at_limit = True
+                    break
+            
+            if record_id % 200 == 0:
+                logger.info(f'completed inference for record number {record_id}')
+            
+            if at_limit:
+                break
+        
+        self._teardown(model)
 
         return results
 
@@ -85,34 +77,25 @@ class ModelStrategy(ABC):
     def _prepare_input(self, raw: tuple) -> Any:
         """
         Convert a raw input tuple into the tensor format the model expects.
-        Must handle any necessary shape transformations (e.g. adding batch
-        or channel dimensions).
+        Must handle any necessary shape transformations 
         """
 
     @abstractmethod
     def _forward(self, model: Any, tensor: Any) -> tuple[Any, dict[str, list[float]]]:
         """
         Run a single forward pass.
-
-        Returns:
-            raw_out   — framework-native output (logits / probabilities)
-            per_layer — {layer_name: [activation_float, ...]} for every layer
         """
 
     @abstractmethod
     def _prepare(self, model: Any) -> None:
         """
-        One-time setup before the inference loop begins.
-        Default: no-op. Override in strategies that need pre-loop initialisation
-        (e.g. building a Keras activation model, registering PyTorch hooks).
+        setup before the inference loop begins.
         """
 
     @abstractmethod
     def _teardown(self, model: Any) -> None:
         """
-        One-time cleanup after the inference loop completes.
-        Default: no-op. Override in strategies that allocate resources in
-        _prepare (e.g. removing PyTorch forward hooks).
+        cleanup after the inference loop
         """
 
     def _get_prediction(self, raw_output: np.ndarray) -> int:
@@ -123,59 +106,32 @@ class ModelStrategy(ABC):
         
     def _resolve_predicted(self, predicted_idx: int) -> Any:
         """
-        Map a predicted class index back to the original label type.
-        For integer datasets returns the index unchanged.
-        For string/float datasets returns the class name/value at that index.
+        handles both string and numeric label values
         """
         if not self._class_names:
             return predicted_idx
         return self._class_names.get(predicted_idx, predicted_idx)
 
-    def _build_class_map(self, records: list) -> None:
+    def _build_class_map(self, labels: Optional[list]) -> None:
         """
-        Inspect the dataset labels to determine whether a class name mapping
-        is needed. Called lazily on the first record of each inference run.
- 
-        For integer-labelled datasets: store an empty dict (no mapping needed).
-        For string/float-labelled datasets: build {int_index: label_value}
-        by sorting the unique label values — this mirrors how the training
-        script assigns indices (alphabetical for strings, ascending for floats).
+        Inspect the dataset labels to determine whether a class name mapping is needed
         """
-        labels = [r.label for r in records if r.label is not None]
+        # labels = [r.label for r in records if r.label is not None] 
         if not labels:
             self._class_names = {}
             return
  
-        sample = labels[0]
-        if isinstance(sample, int):
-            # Integer labels, predicted index IS the label, no mapping needed
+        if isinstance(labels[0], int):
+            # Integer labels, predicted index is the label, no mapping needed
             self._class_names = {}
             return
  
-        # String or float labels, sort unique values to reconstruct index order.
-        # This matches sklearn's LabelEncoder and alphabetical class ordering.
+        # string or float labels, sort unique values to reconstruct index order
+        # string labels may be handled by a pre-processing layer in the model
         unique = sorted(set(labels), key=lambda x: (str(type(x)), x))
         self._class_names = {idx: val for idx, val in enumerate(unique)}
 
-    def _build_record(
-        self,
-        record:    DataRecord,
-        predicted: int,
-        per_layer: dict[str, list[float]],
-    ) -> InferenceRecord:
-        """
-        Assemble an immutable InferenceRecord from a forward pass result.
-        Shared across all strategies — lives here once, not in each subclass.
- 
-        The flat activations vector is built by concatenating all per-layer
-        outputs, preserving forward-pass layer order. This vector is used
-        by Vector_Analyzer for cosine distance and cluster analysis.
- 
-        For datasets with string or float labels, _resolve_predicted() maps
-        the integer argmax index back to the original label type so that:
-          - correct = (predicted_label == true_label) works across types
-          - the layer-wise analysis displays meaningful label names
-        """
+    def _build_record(self, record_id: int, input_row, predicted: int, per_layer: dict[str, list[float]], label) -> InferenceRecord:
         flat = np.concatenate([
             np.array(v, dtype=np.float32).flatten()
             for v in per_layer.values()
@@ -190,11 +146,11 @@ class ModelStrategy(ABC):
         resolved_predicted = self._resolve_predicted(predicted)
  
         return InferenceRecord(
-            id                = record.id,
-            input             = record.input,
-            label             = record.label,
+            id                = record_id,
+            input             = input_row,
+            label             = label,
             predicted         = resolved_predicted,
-            correct           = resolved_predicted == record.label,
+            correct           = resolved_predicted == label,
             activations       = tuple(flat.tolist()),
-            layer_activations = layer_activations_frozen,
+            layer_activations = layer_activations_frozen
         )

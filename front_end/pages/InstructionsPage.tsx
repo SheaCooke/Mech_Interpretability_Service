@@ -74,7 +74,7 @@ export default function InstructionsPage() {
                 format. For CSV files, enter the name of the label column before
                 uploading — this enables accuracy metrics and the prediction
                 filter. For NPZ files the tool expects arrays named{" "}
-                <code>x_test</code> and optionally <code>y_test</code>.
+                <code>x_test</code> and <code>y_test</code>.
               </p>
               <div className="tip-box">
                 <strong>Tip:</strong> Always use a held-out test set, not

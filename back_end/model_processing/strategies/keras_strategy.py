@@ -1,15 +1,5 @@
 """
-strategies/keras_strategy.py
-
-Concrete Strategy for Keras (.keras) models.
-
-Implements the four abstract inference steps defined in ModelStrategy:
-  - _prepare:       builds the Keras activation model once before the loop
-  - _prepare_input: adds the batch dimension
-  - _forward:       runs predict() and returns (output, per_layer dict)
-  - _teardown:      no-op for Keras (no resources to release)
-
-Also implements load() and extract_model_data().
+Processing for .keras model files
 """
 
 from __future__ import annotations
@@ -24,18 +14,6 @@ from ..types import ModelMetadata, LayerInfo
 
 class KerasStrategy(ModelStrategy):
 
-    def __init__(self):
-        self._activation_model = None #version of the model that produces activation vectors, instead of just final result
-        self._layer_names: list[str] = []
-        super().__init__()
-
-
-    def load(self, file_path: str) -> Any:
-        try:
-            return keras.models.load_model(file_path)
-        except Exception as e:
-            raise RuntimeError(f"Failed to load Keras model: {e}")
-
     #TODO: replace with dynamic process that is not hard coded
     _TRAINING_ONLY_LAYERS = (
         keras.layers.Dropout,
@@ -48,6 +26,18 @@ class KerasStrategy(ModelStrategy):
         keras.layers.RandomZoom,
         keras.layers.RandomCrop,
     )
+
+    def __init__(self):
+        self._activation_model = None #same weights as the uploaded model, just exposes internal tensors
+        self._layer_names: list[str] = []
+        super().__init__()
+
+
+    def load(self, file_path: str) -> Any:
+        try:
+            return keras.models.load_model(file_path)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Keras model: {e}")
     
 
     @staticmethod
@@ -86,21 +76,39 @@ class KerasStrategy(ModelStrategy):
 
 
     def _prepare(self, model: Any) -> None:
-        """
-        Build the activation model once before the inference loop.
-        Keras allows outputting every layer's tensor in a single predict()
-        call by constructing a Model with multiple outputs.
-        """
         self._layer_names = [layer.name for layer in model.layers]
         self._activation_model = keras.Model(
             inputs=model.inputs,
-            outputs=[layer.output for layer in model.layers],
+            outputs=[layer.output for layer in model.layers]
         )
 
 
     def _prepare_input(self, raw: tuple) -> np.ndarray:
-        """Add batch dimension. Keras Flatten handles any 2D/3D input shape."""
-        return np.expand_dims(np.array(raw, dtype=np.float32), axis=0)
+        """
+        Convert the raw input tuple into the tensor shape the model expects.
+        """
+        arr = np.array(raw, dtype=np.float32)
+
+        # Try to infer the model's expected input (excluding batch dim)
+        expected_shape = None
+        try:
+            inp_shape = getattr(self._activation_model, 'input_shape', None)
+            if inp_shape is None:
+                inp_shape = getattr(self._activation_model, 'inputs')[0].shape
+            # Normalize to a tuple of ints (exclude batch dimension)
+            if isinstance(inp_shape, (list, tuple)):
+                if isinstance(inp_shape[0], (list, tuple)):
+                    inp_shape = inp_shape[0]
+            if inp_shape is not None:
+                expected_shape = tuple(int(d) for d in inp_shape[1:])
+        except Exception:
+            expected_shape = None
+
+        # If we have a flat vector and an expected multi-dim shape, reshape
+        if expected_shape and arr.ndim == 1 and arr.size == int(np.prod(expected_shape)):
+            arr = arr.reshape(expected_shape)
+
+        return np.expand_dims(arr, axis=0)
 
     def _forward(
         self,
@@ -111,7 +119,7 @@ class KerasStrategy(ModelStrategy):
         Run a single forward pass through the activation model.
         Returns (final_layer_output, per_layer_dict).
         """
-        layer_outputs = self._activation_model.predict(tensor, verbose=0)
+        layer_outputs = self._activation_model.predict(tensor, verbose=0) #TODO: should take workers=2 or more, and use_multiprocessing=True from configs
 
         per_layer = {
             name: output[0].flatten().tolist()

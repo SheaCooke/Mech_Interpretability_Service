@@ -22,8 +22,10 @@ from root of repo
 
 
 ## Planned Features and Fixes:
+- add support for test datasets that have a both string and numeric feature types
 - Support models from Pytorch and ONNX. Currently Keras is the only model lib supported
 - Make this project usable by an agent: expose API for uploading/inference/analysis then return the results in a way that is usable by an LLM, not just through the UI.
+- Add support for mapping numeric output values to string labels when a csv file is uploaded
 - Provide option to weight outputs from different layers when performing analysis
 - cluster plot should have filter options for different labels
 - Make the API callable from Google Colab to facilitate use while training NNs
@@ -52,3 +54,28 @@ from root of repo
 ----
 <img width="1366" height="865" alt="layer-wise-analysis" src="https://github.com/user-attachments/assets/45bb8930-bd3f-47e4-81da-053384337094" />
 
+
+
+### Example of expexted formats:
+```
+# Export the test data in the following way
+np.savez_compressed(
+    'test_data.npz',
+    x_test=X_test,
+    y_test=y_test,          
+    class_names=np.array(class_names)  # Optional, only useful if string labels are used. ex: ['setosa', 'versicolor', 'virginica']
+    # NN output value of 0 maps to 'setosa'
+)
+```
+
+```
+# Export the model file:
+
+model.fit(x_train, y_train, epochs=5)
+
+model_filename = 'mnist_simple_model.keras'
+model.save(model_filename)
+
+from google.colab import files
+files.download(model_filename)
+```
