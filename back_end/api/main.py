@@ -195,7 +195,10 @@ def run_inference(body: InferenceRequest): #TODO: should stream from file
     logger.info(f"running inference for session {body.session_id}")
 
     try:
-        results: list[InferenceRecord] = processor.run_inference(session["x_test_path"], session["y_test_path"], session["class_mapping"]) #TODO: should take reference to file
+        results: list[InferenceRecord] = processor.run_inference(session["x_test_path"], 
+                                                                session["y_test_path"], 
+                                                                session["class_mapping"],
+                                                                int(body.limit))
     except Exception as e:
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")

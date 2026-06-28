@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 import numpy as np
 import pyarrow.parquet as pq
+import logging
 
 from .types import ModelMetadata, InferenceRecord, DataRecord
 
@@ -26,7 +27,7 @@ class ModelStrategy(ABC):
         Inspect a loaded model and return an immutable ModelMetadata snapshot
         """
 
-    def run_inference(self, model: Any, x_test_path: str, y_test_path: str, class_mapping: Optional[list]) -> list[InferenceRecord]:
+    def run_inference(self, model: Any, x_test_path: str, y_test_path: str, class_mapping: Optional[list], record_limit: int) -> list[InferenceRecord]:
 
         self._build_class_map(class_mapping) 
         self._prepare(model)
@@ -41,6 +42,9 @@ class ModelStrategy(ABC):
         #TODO: matches should be passed to the model using tensorflow lib
 
         record_id = 1
+        at_limit = False
+
+        logger.info(f"Starting inference for {record_limit} records")
 
         for batch_x, batch_y in zip(batches_x, batches_y):
             rows_x = batch_x.to_pylist()
@@ -54,9 +58,16 @@ class ModelStrategy(ABC):
                 results.append(inf_record)
 
                 record_id += 1
+
+                if record_id >= record_limit:
+                    at_limit = True
+                    break
             
             if record_id % 200 == 0:
                 logger.info(f'completed inference for record number {record_id}')
+            
+            if at_limit:
+                break
         
         self._teardown(model)
 
