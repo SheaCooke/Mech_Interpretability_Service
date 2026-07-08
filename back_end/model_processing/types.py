@@ -43,10 +43,10 @@ class ModelMetadata:
                     'type':               l.type,
                     'activation':         l.activation,
                     'num_neurons':        l.num_neurons,
-                    'relevant_inference': l.relevant_inference,
+                    'relevant_inference': l.relevant_inference
                 }
                 for l in self.layers
-            ],
+            ]
         }
 
 
@@ -77,5 +77,5 @@ class InferenceRecord:
             'predicted':         self.predicted,
             'correct':           self.correct,
             'activations':       self.activations_array(),
-            'layer_activations': self.layer_activations_dict(),
+            'layer_activations': self.layer_activations_dict()
         }

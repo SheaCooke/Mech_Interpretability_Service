@@ -100,10 +100,9 @@ async def upload_model(file: UploadFile = File(...)):
     logger.info(f"created session {session_id}")
     
     sessions[session_id] = {
-        "processor":          processor,
-        "dataset_records":    None, #TODO
-        "inference_results":  None,
-        "vector_analyzer":    None,
+        "processor": processor,
+        "inference_results": None,
+        "vector_analyzer": None,
         "x_test_path": None,
         "y_test_path": None
     }
@@ -191,10 +190,10 @@ def run_inference(body: InferenceRequest):
     logger.info(f'Created summary and vector analyzer object for session {body.session_id}')
 
     return {
-        "session_id":    body.session_id,
-        "num_results":   len(results),
-        "limit_applied": body.limit if body.limit else None,
-        "summary":       numpy_safe(summary)
+        "session_id": body.session_id,
+        "num_results": len(results),
+        "limit_applied": body.limit,
+        "summary": numpy_safe(summary)
     }
 
 

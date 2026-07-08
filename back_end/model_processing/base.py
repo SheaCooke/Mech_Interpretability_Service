@@ -41,7 +41,7 @@ class ModelStrategy(ABC):
         #TODO: collect unique labels in a set while streaming in the records
         #TODO: matches should be passed to the model using tensorflow lib
 
-        record_id = 1
+        record_id = 0
         at_limit = False
 
         logger.info(f"Starting inference for {record_limit} records")

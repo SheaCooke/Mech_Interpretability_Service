@@ -33,7 +33,7 @@ export async function uploadDataset(
 
 export async function runInference(
   sessionId: string,
-  limit?: number
+  limit: number
 ): Promise<{ summary: InferenceSummary }> {
   return apiFetch("/inference/run", {
     method: "POST",
@@ -41,9 +41,7 @@ export async function runInference(
     body: JSON.stringify(
       { 
         session_id: sessionId,
-        // Only send limit if it is a positive number less than the total.
-        // The backend treats null/undefined as "run all records".
-        ...(limit != null && limit > 0 ? { limit } : {}),
+        limit: limit
       }
     ),
   });
