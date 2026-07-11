@@ -59,11 +59,7 @@ class InferenceRecord:
     label: Optional[int|float|str]
     predicted: int
     correct: bool
-    activations: tuple 
     layer_activations: tuple 
-
-    def activations_array(self):
-        return np.array(self.activations, dtype=np.float32)
 
     def layer_activations_dict(self) -> dict[str, list[float]]:
         return {name: list(values) for name, values in self.layer_activations}
@@ -74,6 +70,5 @@ class InferenceRecord:
             'label': self.label,
             'predicted': self.predicted,
             'correct': self.correct,
-            'activations': self.activations_array(),
             'layer_activations': self.layer_activations_dict()
         }

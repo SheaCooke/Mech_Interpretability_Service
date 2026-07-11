@@ -132,10 +132,6 @@ class ModelStrategy(ABC):
         self._class_names = {idx: val for idx, val in enumerate(unique)}
 
     def _build_record(self, record_id: int, predicted: int, per_layer: dict[str, list[float]], label) -> InferenceRecord:
-        flat = np.concatenate([
-            np.array(v, dtype=np.float32).flatten()
-            for v in per_layer.values()
-        ]) if per_layer else np.array([], dtype=np.float32)
  
         layer_activations_frozen = tuple(
             (name, tuple(float(v) for v in vals))
@@ -146,10 +142,9 @@ class ModelStrategy(ABC):
         resolved_predicted = self._resolve_predicted(predicted)
  
         return InferenceRecord(
-            id                = record_id,
-            label             = label,
-            predicted         = resolved_predicted,
-            correct           = resolved_predicted == label,
-            activations       = tuple(flat.tolist()),
+            id = record_id,
+            label = label,
+            predicted = resolved_predicted,
+            correct = resolved_predicted == label,
             layer_activations = layer_activations_frozen
         )
