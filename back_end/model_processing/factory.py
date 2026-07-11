@@ -8,11 +8,9 @@ class ModelStrategyFactory:
 
     @classmethod
     def create(cls, file_path: str) -> ModelStrategy:
-        """
-        Resolve and instantiate the correct strategy for the file type
-        """
         ext = file_path.rsplit('.', 1)[-1].lower()
 
         if ext == 'keras':
             return KerasStrategy()
+        #TODO: extend with other model types
         raise ValueError(f"Model file type is not currently supported.")

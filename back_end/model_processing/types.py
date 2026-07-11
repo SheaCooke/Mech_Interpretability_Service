@@ -56,7 +56,6 @@ class InferenceRecord:
     The result of running a single test record through a model.
     """
     id:                str
-    input:             tuple
     label:             Optional[int|float|str]
     predicted:         int
     correct:           bool
@@ -72,7 +71,6 @@ class InferenceRecord:
     def to_dict(self) -> dict: 
         return {
             'id':                self.id,
-            'input':             list(self.input),
             'label':             self.label,
             'predicted':         self.predicted,
             'correct':           self.correct,

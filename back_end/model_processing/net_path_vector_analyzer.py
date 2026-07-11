@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from ..api.types import PredictionFilter
 
 
-class Vector_Analyzer:
+class Net_Path_Vector_Analyzer:
     def __init__(self, inference_results: list[dict]):
         self.id_map: np.ndarray = self.get_id_mapping(inference_results)
         self.incorrect_ids = {rec['id'] for rec in inference_results if rec['correct'] == False}
@@ -87,7 +87,7 @@ class Vector_Analyzer:
                 'y':         float(coords[i, 1]),
                 'label':     record.get('label'),
                 'predicted': record.get('predicted'),
-                'correct':   record.get('correct'),
+                'correct':   record.get('correct')
             })
 
         

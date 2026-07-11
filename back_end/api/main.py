@@ -6,9 +6,9 @@ from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from back_end.model_processing.vector_analyzer import Vector_Analyzer
+from back_end.model_processing.net_path_vector_analyzer import Net_Path_Vector_Analyzer
 from back_end.model_processing.model_processor import Model_Processor
-from back_end.model_processing.layer_analysis import compute_prototypes, compute_layer_deviations
+from back_end.model_processing.functional_components.layer_analysis import compute_prototypes, compute_layer_deviations
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
 from ..model_processing.types import InferenceRecord
 from .utilities import get_extension, numpy_safe
@@ -18,7 +18,8 @@ from logging.config import dictConfig
 from pathlib import Path
 import shutil
 
-
+#TODO: stream all records to files (layerwise and total concatonated), load all panels asynchronously after inference
+#if its just concatonating, why are we storing both? just store per layer and concatonate as needed?
 
 dictConfig({
   "version": 1,
@@ -180,12 +181,12 @@ def run_inference(body: InferenceRequest):
     logger.info(f"produced inference results for {len(results)} records")
 
     result_dicts = processor.results_to_dicts(results) #convert to dictionaries to support json responses
-    analyzer = Vector_Analyzer(result_dicts)
+    analyzer = Net_Path_Vector_Analyzer(result_dicts)
 
     session["inference_results"] = result_dicts #TODO: should be file
     session["vector_analyzer"] = analyzer
 
-    summary = processor.summarise(results)
+    summary = processor.summarize(results)
 
     logger.info(f'Created summary and vector analyzer object for session {body.session_id}')
 

@@ -5,12 +5,12 @@ coordinator class
 from __future__ import annotations
 from typing import Optional
 from .factory import ModelStrategyFactory
-from .dataset_loader import convert_to_parquet
-from .summariser import summarise_results
+from .functional_components.dataset_functions import convert_to_parquet
+from .functional_components.summarizer import summarize_results
 from .types import ModelMetadata, InferenceRecord
 
 
-class Model_Processor:
+class Model_Processor: #TODO: model processor name is not an accurate description of these methods
 
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -27,15 +27,15 @@ class Model_Processor:
         """
         return self._strategy.run_inference(self.model, x_test_path, y_test_path, class_names, record_limit)
 
-    def summarise(self, results: list[InferenceRecord]) -> dict:
+    def summarize(self, results: list[InferenceRecord]) -> dict:
         """
         Compute accuracy statistics from inference results.
         """
-        return summarise_results(results)
+        return summarize_results(results)
 
     def results_to_dicts(self, results: list[InferenceRecord]) -> list[dict]:
         """
         Convert InferenceRecord objects to plain dicts for downstream
-        consumers (Vector_Analyzer, layer_analysis, JSON serialisation).
+        consumers (Net_Path_Vector_Analyzer, layer_analysis, JSON serialisation).
         """
         return [r.to_dict() for r in results]

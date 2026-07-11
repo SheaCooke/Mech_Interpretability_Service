@@ -1,24 +1,21 @@
 
 from __future__ import annotations
-from .types import InferenceRecord
+from ..types import InferenceRecord
 
 
-def summarise_results(results: list[InferenceRecord]) -> dict:
-    """
-    Compute accuracy statistics from a list of InferenceRecord objects.
-    """
-    total      = len(results)
+def summarize_results(results: list[InferenceRecord]) -> dict:
+    total = len(results)
     has_labels = all(r.label is not None for r in results)
 
     if not has_labels:
         return {
             'total_records': total,
-            'has_labels':    False,
+            'has_labels':    False
         }
 
-    correct   = sum(1 for r in results if r.correct)
+    correct = sum(1 for r in results if r.correct)
     incorrect = total - correct
-    accuracy  = correct / total if total > 0 else 0.0
+    accuracy = correct / total if total > 0 else 0.0
 
     class_results: dict[int, dict] = {}
     for record in results:
@@ -35,7 +32,7 @@ def summarise_results(results: list[InferenceRecord]) -> dict:
         label: {
             'total':    stats['total'],
             'correct':  stats['correct'],
-            'accuracy': stats['correct'] / stats['total'],
+            'accuracy': stats['correct'] / stats['total']
         }
         for label, stats in sorted(class_results.items())
     }
@@ -46,5 +43,5 @@ def summarise_results(results: list[InferenceRecord]) -> dict:
         'correct':            correct,
         'incorrect':          incorrect,
         'accuracy':           accuracy,
-        'per_class_accuracy': per_class_accuracy,
+        'per_class_accuracy': per_class_accuracy
     }

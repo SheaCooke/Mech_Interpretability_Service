@@ -54,7 +54,7 @@ class ModelStrategy(ABC):
                 tensor           = self._prepare_input(tuple(rx.values())) 
                 raw_out, per_layer = self._forward(model, tensor)
                 predicted        = self._get_prediction(raw_out)
-                inf_record       = self._build_record(record_id, tuple(rx.values()), predicted, per_layer, ry['val'])
+                inf_record       = self._build_record(record_id, predicted, per_layer, ry['val'])
                 results.append(inf_record)
 
                 record_id += 1
@@ -131,7 +131,7 @@ class ModelStrategy(ABC):
         unique = sorted(set(labels), key=lambda x: (str(type(x)), x))
         self._class_names = {idx: val for idx, val in enumerate(unique)}
 
-    def _build_record(self, record_id: int, input_row, predicted: int, per_layer: dict[str, list[float]], label) -> InferenceRecord:
+    def _build_record(self, record_id: int, predicted: int, per_layer: dict[str, list[float]], label) -> InferenceRecord:
         flat = np.concatenate([
             np.array(v, dtype=np.float32).flatten()
             for v in per_layer.values()
@@ -147,7 +147,6 @@ class ModelStrategy(ABC):
  
         return InferenceRecord(
             id                = record_id,
-            input             = input_row,
             label             = label,
             predicted         = resolved_predicted,
             correct           = resolved_predicted == label,
