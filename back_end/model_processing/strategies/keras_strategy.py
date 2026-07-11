@@ -58,20 +58,20 @@ class KerasStrategy(ModelStrategy):
             activation = getattr(layer, "activation", None)
 
             layer_infos.append(LayerInfo(
-                name               = layer.name,
-                type               = type(layer).__name__,
-                activation         = activation.__name__ if activation else "N/A",
-                num_neurons        = getattr(layer, 'units', None),
+                name = layer.name,
+                type = type(layer).__name__,
+                activation = activation.__name__ if activation else "N/A",
+                num_neurons = getattr(layer, 'units', None),
                 relevant_inference = not isinstance(layer, self._TRAINING_ONLY_LAYERS)
             ))
  
         return ModelMetadata(
-            format               = 'keras',
-            total_params         = model.count_params(),
-            num_layers           = len(model.layers),
-            input_shape          = self._safe_model_shape(model.input_shape),
-            output_shape         = self._safe_model_shape(model.output_shape),
-            layers               = tuple(layer_infos)
+            format = 'keras',
+            total_params = model.count_params(),
+            num_layers = len(model.layers),
+            input_shape = self._safe_model_shape(model.input_shape),
+            output_shape = self._safe_model_shape(model.output_shape),
+            layers = tuple(layer_infos)
         )
 
 
@@ -110,11 +110,7 @@ class KerasStrategy(ModelStrategy):
 
         return np.expand_dims(arr, axis=0)
 
-    def _forward(
-        self,
-        model: Any,
-        tensor: np.ndarray,
-    ) -> tuple[np.ndarray, dict[str, list[float]]]:
+    def _forward(self, model: Any, tensor: np.ndarray) -> tuple[np.ndarray, dict[str, list[float]]]:
         """
         Run a single forward pass through the activation model.
         Returns (final_layer_output, per_layer_dict).

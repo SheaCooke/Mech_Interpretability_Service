@@ -20,6 +20,11 @@ import shutil
 
 #TODO: stream all records to files (layerwise and total concatonated), load all panels asynchronously after inference
 #if its just concatonating, why are we storing both? just store per layer and concatonate as needed?
+#class map needs to be stored in session
+# when reading vectors back in, need to be in dictionary format
+# store a map of layer index number to layer names
+# replace with equal number from all classes up to some memory limit. this means the algo will need to take network and vector size into account for calculating the max num of records
+# max RAM should be configurable. ^ should work backwards based on that.
 
 dictConfig({
   "version": 1,
@@ -56,7 +61,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-sessions: dict[str, dict] = {} #TODO: replace with redis or a DB
+sessions: dict[str, dict] = {} #TODO: replace with cache with LRU eviction. remove objects first
 
 #TODO: move to utilities after changing how sessions are managed
 def require_session(session_id: str) -> dict:
@@ -315,7 +320,7 @@ def layer_deviation(body: dict):
         )
 
     try:
-        prototypes = compute_prototypes(results)
+        prototypes = compute_prototypes(results) #TODO: store map of labels to prototypes instead of re-computing
         deviations = compute_layer_deviations(target, prototypes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Layer deviation failed: {str(e)}")

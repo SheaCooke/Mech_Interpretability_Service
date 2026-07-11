@@ -38,7 +38,7 @@ class Net_Path_Vector_Analyzer:
         if self.distance_matrix is None:
             self.distance_matrix = self.get_distance_matrix(self.activation_matrix)
 
-        # Get indices of all pairs below threshold in one vectorized call
+        # Get indices of all pairs within range
         rows, cols = np.where(
             (self.distance_matrix >= low) & (self.distance_matrix <= high)
         )
@@ -46,7 +46,7 @@ class Net_Path_Vector_Analyzer:
         pairs = []
         for i, j in zip(rows, cols):
             if i >= len(inference_results) or j >= len(inference_results): #filtered inf results will be less than dist matrix
-                break
+                raise ValueError("Size of distance matrix must match number of inference results")
             if i < j: #i < j required to avoid duplicates
                 pairs.append({
                     'id_a':     self.id_map[i],

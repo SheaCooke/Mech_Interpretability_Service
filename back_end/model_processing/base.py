@@ -51,10 +51,10 @@ class ModelStrategy(ABC):
             rows_y = batch_y.to_pylist()
 
             for rx, ry in zip(rows_x, rows_y):
-                tensor           = self._prepare_input(tuple(rx.values())) 
+                tensor = self._prepare_input(tuple(rx.values())) 
                 raw_out, per_layer = self._forward(model, tensor)
-                predicted        = self._get_prediction(raw_out)
-                inf_record       = self._build_record(record_id, predicted, per_layer, ry['val'])
+                predicted = self._get_prediction(raw_out)
+                inf_record = self._build_record(record_id, predicted, per_layer, ry['val'])
                 results.append(inf_record)
 
                 record_id += 1
