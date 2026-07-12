@@ -1110,7 +1110,6 @@ body {
   line-height: 1.4;
 }
 
-/* ── PairsPanel overhaul ────────────────────────────────── */
  
 .pairs-panel {
   /* Constrain total panel height so it never dominates the page */
