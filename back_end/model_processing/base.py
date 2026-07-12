@@ -63,7 +63,7 @@ class ModelStrategy(ABC):
                     at_limit = True
                     break
             
-            if record_id % 200 == 0:
+            if record_id % 100 == 0:
                 logger.info(f'completed inference for record number {record_id}')
             
             if at_limit:
