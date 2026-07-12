@@ -68,8 +68,8 @@ export default function InterpretingPage() {
           This page explains what each widget reveals about your model's internal
           representations, how to diagnose specific failure modes, and what
           concrete changes to make to your training setup based on what you find.
-          All analysis in NN Analyzer operates on <strong>activation
-          vectors</strong> — the outputs of every layer for a given input record.
+          All analysis in this program is based on <strong>activation
+          vectors</strong> - the outputs of every layer for a given input record.
         </p>
       </div>
 
@@ -77,7 +77,7 @@ export default function InterpretingPage() {
         <h2 className="doc-h2">What is an Activation Vector?</h2>
         <p className="doc-p">
           When a record is passed through the model, each layer transforms the
-          data and produces an output — a list of numbers called an activation.
+          data and produces an output - a list of numbers called an activation.
           This program concatenates the activations from all layers into
           a single flat vector for general analysis, and also stores each layer's
           output separately for layer-wise analysis.
@@ -104,8 +104,7 @@ export default function InterpretingPage() {
           Cluster Plot
         </h2>
         <p className="doc-p">
-          The cluster plot reduces all activation vectors to 2D using UMAP (or
-          t-SNE if UMAP is unavailable) and renders them as an interactive
+          The cluster plot reduces all activation vectors to 2D using UMAP and renders them as an interactive
           scatter plot. Each point is one record, coloured by ground-truth label.
           Dim points with a red ring were predicted incorrectly.
         </p>
@@ -296,7 +295,8 @@ export default function InterpretingPage() {
           The similar pairs table lists every pair of records whose cosine
           distance falls below the chosen threshold. A lower threshold means
           more similar — a distance of 0.0 would mean the two records are
-          processed identically by the model at every layer.
+          processed identically by the model at every layer. This widget can be used as a 
+          more detailed version of the cluster plot.
         </p>
 
         <h3 className="doc-h3">Reading the threshold</h3>

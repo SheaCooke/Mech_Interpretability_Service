@@ -82,7 +82,7 @@ files.download(model_filename)
 
 ## Types of analysis
 ### Net path
-- Concatonates the activation vectors, then compares against that of other records.
+- Concatenates the activation vectors, then compares them against that of other records. Used for the clustering and similarity panels.
 
 ### Layer-wise
-- Compares the activation vecors fro different records at each layer.
+- Compares the activation vectors for different records at each layer. Used for the prototype deviation panel.
