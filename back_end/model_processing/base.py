@@ -41,7 +41,7 @@ class ModelStrategy(ABC):
         #TODO: collect unique labels in a set while streaming in the records
         #TODO: matches should be passed to the model using tensorflow lib
 
-        record_id = 1
+        record_id = 0
         at_limit = False
 
         logger.info(f"Starting inference for {record_limit} records")
@@ -51,10 +51,10 @@ class ModelStrategy(ABC):
             rows_y = batch_y.to_pylist()
 
             for rx, ry in zip(rows_x, rows_y):
-                tensor           = self._prepare_input(tuple(rx.values())) 
+                tensor = self._prepare_input(tuple(rx.values())) 
                 raw_out, per_layer = self._forward(model, tensor)
-                predicted        = self._get_prediction(raw_out)
-                inf_record       = self._build_record(record_id, tuple(rx.values()), predicted, per_layer, ry['val'])
+                predicted = self._get_prediction(raw_out)
+                inf_record = self._build_record(record_id, predicted, per_layer, ry['val'])
                 results.append(inf_record)
 
                 record_id += 1
@@ -63,7 +63,7 @@ class ModelStrategy(ABC):
                     at_limit = True
                     break
             
-            if record_id % 200 == 0:
+            if record_id % 100 == 0:
                 logger.info(f'completed inference for record number {record_id}')
             
             if at_limit:
@@ -131,11 +131,7 @@ class ModelStrategy(ABC):
         unique = sorted(set(labels), key=lambda x: (str(type(x)), x))
         self._class_names = {idx: val for idx, val in enumerate(unique)}
 
-    def _build_record(self, record_id: int, input_row, predicted: int, per_layer: dict[str, list[float]], label) -> InferenceRecord:
-        flat = np.concatenate([
-            np.array(v, dtype=np.float32).flatten()
-            for v in per_layer.values()
-        ]) if per_layer else np.array([], dtype=np.float32)
+    def _build_record(self, record_id: int, predicted: int, per_layer: dict[str, list[float]], label) -> InferenceRecord:
  
         layer_activations_frozen = tuple(
             (name, tuple(float(v) for v in vals))
@@ -146,11 +142,9 @@ class ModelStrategy(ABC):
         resolved_predicted = self._resolve_predicted(predicted)
  
         return InferenceRecord(
-            id                = record_id,
-            input             = input_row,
-            label             = label,
-            predicted         = resolved_predicted,
-            correct           = resolved_predicted == label,
-            activations       = tuple(flat.tolist()),
+            id = record_id,
+            label = label,
+            predicted = resolved_predicted,
+            correct = resolved_predicted == label,
             layer_activations = layer_activations_frozen
         )

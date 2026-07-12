@@ -36,10 +36,7 @@ def compute_prototypes(inference_results: list[dict]) -> dict[str, dict[int, lis
     return prototypes
 
 
-def compute_layer_deviations(
-    record: dict,
-    prototypes: dict[str, dict[int, list[float]]],
-) -> dict:
+def compute_layer_deviations(record: dict, prototypes: dict[str, dict[int, list[float]]]) -> dict:
     """
     For a single incorrect record, compute the cosine distance
     between the record's activation at each layer and:
@@ -49,10 +46,10 @@ def compute_layer_deviations(
     Returns a dict ready to be serialised and sent to the frontend.
     """
     layer_names = list(record['layer_activations'].keys())
-    true_label      = record['label']
+    true_label = record['label']
     predicted_label = record['predicted']
 
-    true_deviations      = []
+    true_deviations = []
     predicted_deviations = []
 
     for layer in layer_names:
@@ -89,5 +86,5 @@ def compute_layer_deviations(
         'predicted_label':         predicted_label,
         'layer_names':             layer_names,
         'true_label_deviations':   true_deviations,
-        'predicted_deviations':    predicted_deviations,
+        'predicted_deviations':    predicted_deviations
     }

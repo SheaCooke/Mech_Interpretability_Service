@@ -79,3 +79,10 @@ model.save(model_filename)
 from google.colab import files
 files.download(model_filename)
 ```
+
+## Types of analysis
+### Net path
+- Concatonates the activation vectors, then compares against that of other records.
+
+### Layer-wise
+- Compares the activation vecors fro different records at each layer.

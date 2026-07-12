@@ -3,13 +3,12 @@ from __future__ import annotations
 from typing import Optional
 import numpy as np
 import pandas as pd
-from ..common import SUPPORTED_DATASET_EXTENSIONS
+from ...common import SUPPORTED_DATASET_EXTENSIONS, PARQUET_BASE_PATH
 import io
 import pyarrow.parquet as pq
 import pyarrow as pa
 import pandas as pd
 from pathlib import Path
-from ..common import PARQUET_BASE_PATH
 from io import BytesIO
 
 
@@ -18,17 +17,17 @@ def convert_to_parquet(file_extension: str, file_bytes: bytes, session_id: str, 
     if file_extension == 'csv':
         if not label_column:
             raise ValueError('A specified label column is required when uploading a csv file.')
-        return _csv_to_parquet(file_bytes, PARQUET_BASE_PATH, label_column, session_id)
+        return csv_to_parquet(file_bytes, label_column, session_id)
     elif file_extension == 'npz':
-        return _npz_to_parquet(file_bytes, PARQUET_BASE_PATH, session_id)
+        return npz_to_parquet(file_bytes, session_id)
 
     return None
     
 
-def _npz_to_parquet(file_bytes: bytes, parquet_path_base: str, session_id: str) -> tuple[int, str, str, list]:
+def npz_to_parquet(file_bytes: bytes, session_id: str) -> tuple[int, str, str, list]:
 
-    x_path = f'{parquet_path_base}{session_id}\\x_test.parquet'
-    y_path = f'{parquet_path_base}{session_id}\\y_test.parquet'
+    x_path, y_path = get_parquet_paths(PARQUET_BASE_PATH, session_id)
+
     num_records = 0
 
     with np.load(io.BytesIO(file_bytes)) as data:
@@ -60,18 +59,23 @@ def _npz_to_parquet(file_bytes: bytes, parquet_path_base: str, session_id: str) 
     return num_records, x_path, y_path, class_mapping
 
 
-
-def _csv_to_parquet(file_bytes: bytes, parquet_path_base: str, label_column: str, session_id: str) -> tuple[int, str, str]:
+def csv_to_parquet(file_bytes: bytes, label_column: str, session_id: str) -> tuple[int, str, str]:
 
     csv_content = pd.read_csv(BytesIO(file_bytes))
 
     x_test = csv_content.drop(columns=[label_column])
     y_test = csv_content[label_column]
 
-    x_path = f'{parquet_path_base}{session_id}\\x_test.parquet'
-    y_path = f'{parquet_path_base}{session_id}\\y_test.parquet'
+    x_path, y_path = get_parquet_paths(PARQUET_BASE_PATH, session_id)
 
     x_test.to_parquet(x_path, index=False)
     y_test.to_frame().to_parquet(y_path, index=False)
 
     return len(x_test), x_path, y_path, None
+
+
+def get_parquet_paths(base_path: str, session_id: str) -> tuple[str,str]:
+    x_path = f'{base_path}{session_id}\\x_test.parquet'
+    y_path = f'{base_path}{session_id}\\y_test.parquet'
+    return (x_path, y_path)
+

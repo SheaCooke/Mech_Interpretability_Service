@@ -6,9 +6,9 @@ from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from back_end.model_processing.vector_analyzer import Vector_Analyzer
+from back_end.model_processing.net_path_vector_analyzer import Net_Path_Vector_Analyzer
 from back_end.model_processing.model_processor import Model_Processor
-from back_end.model_processing.layer_analysis import compute_prototypes, compute_layer_deviations
+from back_end.model_processing.functional_components.layer_analysis import compute_prototypes, compute_layer_deviations
 from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
 from ..model_processing.types import InferenceRecord
 from .utilities import get_extension, numpy_safe
@@ -18,7 +18,13 @@ from logging.config import dictConfig
 from pathlib import Path
 import shutil
 
-
+#TODO: stream all records to files (layerwise and total concatonated), load all panels asynchronously after inference
+#if its just concatonating, why are we storing both? just store per layer and concatonate as needed?
+#class map needs to be stored in session
+# when reading vectors back in, need to be in dictionary format
+# store a map of layer index number to layer names
+# replace with equal number from all classes up to some memory limit. this means the algo will need to take network and vector size into account for calculating the max num of records
+# max RAM should be configurable. ^ should work backwards based on that.
 
 dictConfig({
   "version": 1,
@@ -55,7 +61,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-sessions: dict[str, dict] = {} #TODO: replace with redis or a DB
+sessions: dict[str, dict] = {} #TODO: replace with cache with LRU eviction. remove objects first
 
 #TODO: move to utilities after changing how sessions are managed
 def require_session(session_id: str) -> dict:
@@ -100,10 +106,9 @@ async def upload_model(file: UploadFile = File(...)):
     logger.info(f"created session {session_id}")
     
     sessions[session_id] = {
-        "processor":          processor,
-        "dataset_records":    None, #TODO
-        "inference_results":  None,
-        "vector_analyzer":    None,
+        "processor": processor,
+        "inference_results": None,
+        "vector_analyzer": None,
         "x_test_path": None,
         "y_test_path": None
     }
@@ -181,20 +186,20 @@ def run_inference(body: InferenceRequest):
     logger.info(f"produced inference results for {len(results)} records")
 
     result_dicts = processor.results_to_dicts(results) #convert to dictionaries to support json responses
-    analyzer = Vector_Analyzer(result_dicts)
+    analyzer = Net_Path_Vector_Analyzer(result_dicts)
 
     session["inference_results"] = result_dicts #TODO: should be file
     session["vector_analyzer"] = analyzer
 
-    summary = processor.summarise(results)
+    summary = processor.summarize(results)
 
     logger.info(f'Created summary and vector analyzer object for session {body.session_id}')
 
     return {
-        "session_id":    body.session_id,
-        "num_results":   len(results),
-        "limit_applied": body.limit if body.limit else None,
-        "summary":       numpy_safe(summary)
+        "session_id": body.session_id,
+        "num_results": len(results),
+        "limit_applied": body.limit,
+        "summary": numpy_safe(summary)
     }
 
 
@@ -315,7 +320,7 @@ def layer_deviation(body: dict):
         )
 
     try:
-        prototypes = compute_prototypes(results)
+        prototypes = compute_prototypes(results) #TODO: store map of labels to prototypes instead of re-computing
         deviations = compute_layer_deviations(target, prototypes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Layer deviation failed: {str(e)}")

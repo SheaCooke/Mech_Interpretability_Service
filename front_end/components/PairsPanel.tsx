@@ -16,18 +16,18 @@ export default function PairsPanel({ pairs }: Props) {
   const filtered = useMemo(() => {
     const term = filter.trim().toLowerCase();
     if (!term) return pairs;
-    return pairs.filter(
-      p =>
-        p.id_a.toLowerCase().includes(term) ||
-        p.id_b.toLowerCase().includes(term)
-    );
+    return pairs.filter(p => {
+      const idA = String(p.id_a).toLowerCase();
+      const idB = String(p.id_b).toLowerCase();
+      return idA === term || idB === term;
+    });
   }, [pairs, filter]);
 
   // Reset to page 0 whenever the filter changes
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage   = Math.min(page, totalPages - 1);
-  const pageStart  = safePage * PAGE_SIZE;
-  const pageRows   = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const safePage = Math.min(page, totalPages - 1);
+  const pageStart = safePage * PAGE_SIZE;
+  const pageRows = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
   function handleFilterChange(val: string) {
     setFilter(val);
@@ -161,15 +161,16 @@ export default function PairsPanel({ pairs }: Props) {
  * Highlight the matched substring within a record id string.
  * Returns either a plain string or a JSX element with a highlighted span.
  */
-function highlightMatch(text: string, term: string): React.ReactNode {
-  if (!term.trim()) return text;
-  const idx = text.toLowerCase().indexOf(term.toLowerCase());
-  if (idx === -1) return text;
+function highlightMatch(text: string | number, term: string): React.ReactNode {
+  const textStr = String(text);
+  if (!term.trim()) return textStr;
+  const idx = textStr.toLowerCase().indexOf(term.toLowerCase());
+  if (idx === -1) return textStr;
   return (
     <>
-      {text.slice(0, idx)}
-      <mark className="pairs-highlight">{text.slice(idx, idx + term.length)}</mark>
-      {text.slice(idx + term.length)}
+      {textStr.slice(0, idx)}
+      <mark className="pairs-highlight">{textStr.slice(idx, idx + term.length)}</mark>
+      {textStr.slice(idx + term.length)}
     </>
   );
 }
@@ -178,8 +179,6 @@ function highlightMatch(text: string, term: string): React.ReactNode {
  * Build a compact page number range to display in the pagination bar.
  * Always shows first, last, current, and the pages immediately adjacent
  * to the current page. Gaps are represented by "…".
- *
- * e.g. for page 5 of 20: [0, "…", 4, 5, 6, "…", 19]
  */
 function buildPageRange(
   current: number,

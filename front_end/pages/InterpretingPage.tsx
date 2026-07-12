@@ -78,7 +78,7 @@ export default function InterpretingPage() {
         <p className="doc-p">
           When a record is passed through the model, each layer transforms the
           data and produces an output — a list of numbers called an activation.
-          NN Analyzer concatenates the activations from <em>all</em> layers into
+          This program concatenates the activations from all layers into
           a single flat vector for general analysis, and also stores each layer's
           output separately for layer-wise analysis.
         </p>
