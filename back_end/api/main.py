@@ -61,7 +61,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-sessions: dict[str, dict] = {} #TODO: replace with cache with LRU eviction. remove objects first
+sessions: dict[str, dict] = {} #in process caching for now
 
 #TODO: move to utilities after changing how sessions are managed
 def require_session(session_id: str) -> dict:
@@ -188,7 +188,7 @@ def run_inference(body: InferenceRequest):
     result_dicts = processor.results_to_dicts(results) #convert to dictionaries to support json responses
     analyzer = Net_Path_Vector_Analyzer(result_dicts)
 
-    session["inference_results"] = result_dicts #TODO: should be file
+    session["inference_results"] = result_dicts
     session["vector_analyzer"] = analyzer
 
     summary = processor.summarize(results)

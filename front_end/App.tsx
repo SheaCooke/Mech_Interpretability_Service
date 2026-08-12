@@ -26,24 +26,25 @@ import LayerDeviationPlot  from "./components/LayerDeviationPlot";
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("home");
 
-  const [sessionId,        setSessionId]        = useState<string | null>(null);
-  const [modelData,        setModelData]        = useState<ModelData | null>(null);
-  const [datasetMeta,      setDatasetMeta]      = useState<DatasetMeta | null>(null);
-  const [summary,          setSummary]          = useState<InferenceSummary | null>(null);
-  const [pairs,            setPairs]            = useState<SimilarPair[] | null>(null);
-  const [clusterData,      setClusterData]      = useState<ClusterPlotData | null>(null);
-  const [step,             setStep]             = useState<Step>("upload-model");
-  const [loading,          setLoading]          = useState(false);
-  const [status,           setStatus]           = useState<StatusMessage | null>(null);
-  const [labelColumn,      setLabelColumn]      = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [modelData, setModelData] = useState<ModelData | null>(null);
+  const [datasetMeta, setDatasetMeta] = useState<DatasetMeta | null>(null);
+  const [summary, setSummary] = useState<InferenceSummary | null>(null);
+  const [pairs, setPairs] = useState<SimilarPair[] | null>(null);
+  const [clusterData, setClusterData] = useState<ClusterPlotData | null>(null);
+  const [step, setStep] = useState<Step>("upload-model");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<StatusMessage | null>(null);
+  const [labelColumn, setLabelColumn] = useState("");
+  const [maxMemory, SetMaxMemory] = useState(0)
   const [thresholdLow,  setThresholdLow]  = useState(0.0);
   const [thresholdHigh, setThresholdHigh] = useState(0.2);
   const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
   const [inferenceLimit, setInferenceLimit] = useState(0);
 
-  const [incorrectRecords,  setIncorrectRecords]  = useState<IncorrectRecord[]>([]);
-  const [deviationData,     setDeviationData]     = useState<LayerDeviationData | null>(null);
-  const [deviationLoading,  setDeviationLoading]  = useState(false);
+  const [incorrectRecords, setIncorrectRecords] = useState<IncorrectRecord[]>([]);
+  const [deviationData, setDeviationData] = useState<LayerDeviationData | null>(null);
+  const [deviationLoading, setDeviationLoading] = useState(false);
 
   function setErr(msg: string) { setStatus({ msg, type: "error"   }); setLoading(false); }
   function setOk (msg: string) { setStatus({ msg, type: "success" }); setLoading(false); }
@@ -167,11 +168,13 @@ export default function App() {
           <Sidebar
             step={step} loading={loading} sessionId={sessionId}
             datasetMeta={datasetMeta} labelColumn={labelColumn}
+            maxMemory={maxMemory}
             inferenceLimit={inferenceLimit}
             thresholdLow={thresholdLow}
             thresholdHigh={thresholdHigh} 
             predictionFilter={predictionFilter}
             onLabelColumnChange={setLabelColumn}
+            onMaxMemoryChange={SetMaxMemory}
             onInferenceLimitChange={setInferenceLimit}
             onThresholdChange={(low, high) => { setThresholdLow(low); setThresholdHigh(high); }}
             onPredictionFilterChange={setPredictionFilter}

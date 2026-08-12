@@ -8,11 +8,13 @@ interface Props {
   sessionId: string | null;
   datasetMeta: DatasetMeta | null;
   labelColumn: string;
+  maxMemory: number;
   inferenceLimit: number;
   thresholdLow: number;
   thresholdHigh: number;
   predictionFilter: PredictionFilter;
   onLabelColumnChange: (val: string) => void;
+  onMaxMemoryChange: (val: number) => void;
   onInferenceLimitChange: (val: number) => void;
   onThresholdChange: (low: number, high: number) => void;
   onPredictionFilterChange: (val: PredictionFilter) => void;
@@ -32,8 +34,8 @@ const stepIdx: Record<Step, number> = {
 
 export default function Sidebar({
   step, loading, sessionId, datasetMeta,
-  labelColumn, inferenceLimit, thresholdLow, thresholdHigh, predictionFilter,
-  onLabelColumnChange, onInferenceLimitChange, onThresholdChange, onPredictionFilterChange,
+  labelColumn, maxMemory, inferenceLimit, thresholdLow, thresholdHigh, predictionFilter,
+  onLabelColumnChange, onMaxMemoryChange, onInferenceLimitChange, onThresholdChange, onPredictionFilterChange,
   onModelFile, onDatasetFile,
   onRunInference, onFindPairs, onClusterPlot,
 }: Props) {
@@ -88,6 +90,24 @@ export default function Sidebar({
         <h2 className="card-title">
           <span className="card-num">03</span> Run Inference
         </h2>
+
+          <div className="threshold-row">
+            <div className="threshold-label-row">
+              {/* TODO: include projected memory */}
+              <span className="threshold-label">Max RAM for program in MB (optional)</span>
+            </div>
+            <input
+              className="text-input"
+              value={maxMemory}
+              onChange={e => onMaxMemoryChange(parseInt(e.target.value, 10))}
+              disabled={(step !== "inference" && step !== "analysis") || loading}
+            />
+            <div className="threshold-axis">
+              <span>1</span>
+              <span style={{ textAlign: "center" }}>sample</span>
+              <span style={{ textAlign: "right" }}>all</span>
+            </div>
+          </div>
 
         {/* Record count slider */}
         {totalRecords > 0 && (
