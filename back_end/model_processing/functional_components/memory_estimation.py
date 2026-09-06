@@ -90,16 +90,21 @@ def activation_profile(model_data: ModelMetadata) -> tuple[int, int, int, bool]:
     """
     Describe the activations one record produces.
 
-    Inference collects the output of every layer, not just the ones flagged
-    relevant_inference, because the activation model is built from model.layers.
+    Only layers flagged relevant_inference are counted, matching the activation
+    model that KerasStrategy._prepare builds. Training only layers such as
+    Dropout are the identity at inference and are not collected.
 
     Returns (total_values, num_layers, largest_layer_values, exact).
     """
     total = 0
     largest = 0
+    collected = 0
     exact = True
 
     for layer in model_data.layers:
+        if not layer.relevant_inference:
+            continue
+
         size = layer.output_size
 
         if size is None: #shape was not resolvable, approximate so the caller still gets a number
@@ -108,8 +113,9 @@ def activation_profile(model_data: ModelMetadata) -> tuple[int, int, int, bool]:
 
         total += size
         largest = max(largest, size)
+        collected += 1
 
-    return total, len(model_data.layers), largest, exact
+    return total, collected, largest, exact
 
 
 def per_record_bytes(activation_values: int, num_layers: int, largest_layer_values: int) -> dict:
@@ -139,8 +145,8 @@ def per_record_bytes(activation_values: int, num_layers: int, largest_layer_valu
     # cdist upcasts and row-normalises before the dot product
     distance_matrix_scratch = d * FLOAT64_BYTES
 
-    # StandardScaler output plus UMAP's own copy of it, plus the kNN graph
-    umap_scratch = 2 * d * FLOAT32_BYTES + UMAP_GRAPH_BYTES_PER_RECORD
+    # UMAP's own float32 copy of the activation matrix, plus the kNN graph
+    umap_scratch = d * FLOAT32_BYTES + UMAP_GRAPH_BYTES_PER_RECORD
 
     # compute_prototypes stacks the largest layer across records as float64
     prototype_scratch = largest_layer_values * FLOAT64_BYTES

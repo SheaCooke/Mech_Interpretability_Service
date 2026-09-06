@@ -94,7 +94,11 @@ export default function InterpretingPage() {
           measures the angle between two vectors rather than their absolute
           magnitude. This makes comparisons invariant to the overall scale of
           activations and sensitive only to the pattern of which neurons fire
-          together.
+          together. Each layer is normalised before the layers are joined into
+          one vector, so a wide hidden layer cannot drown out a narrow output
+          layer — the distance between two records is the average of their
+          per-layer distances, and the cluster plot reduces those same vectors
+          under that same metric.
         </div>
       </section>
 
@@ -367,7 +371,9 @@ export default function InterpretingPage() {
           The x-axis is the model's layers in order from input to output. The
           y-axis is cosine distance — a value of 0.0 means the record's
           activation at that layer is identical to the prototype; a higher value
-          means it is more different.
+          means it is more different. A break in the line means the distance is
+          undefined at that layer, because the record or the prototype produced
+          no activation there at all.
         </p>
 
         <h3 className="doc-h3">Reading the chart — key patterns</h3>
