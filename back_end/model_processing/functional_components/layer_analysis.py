@@ -60,11 +60,13 @@ def compute_layer_deviations(record: dict, prototypes: dict[str, dict[int, list[
                 and layer in prototypes
                 and true_label in prototypes[layer]):
             proto_true = np.array(prototypes[layer][true_label])
-            # Guard against zero vectors (e.g. all-zero dropout outputs)
+            # Cosine distance is undefined against a zero vector. Report None
+            # (drawn as a gap) rather than 0.0, which the chart reads as a
+            # perfect match -- the opposite of what a dead layer means.
             if np.any(vec) and np.any(proto_true):
                 true_deviations.append(float(cosine_distance(vec, proto_true)))
             else:
-                true_deviations.append(0.0)
+                true_deviations.append(None)
         else:
             true_deviations.append(None)
 
@@ -76,7 +78,7 @@ def compute_layer_deviations(record: dict, prototypes: dict[str, dict[int, list[
             if np.any(vec) and np.any(proto_pred):
                 predicted_deviations.append(float(cosine_distance(vec, proto_pred)))
             else:
-                predicted_deviations.append(0.0)
+                predicted_deviations.append(None)
         else:
             predicted_deviations.append(None)
 

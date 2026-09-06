@@ -1,6 +1,6 @@
 import DropZone from "./DropZone";
 import RangeSlider from "./RangeSlider";
-import type { Step, DatasetMeta, PredictionFilter  } from "../types";
+import type { Step, DatasetMeta, PredictionFilter, RecordBudget } from "../types";
 
 interface Props {
   step: Step;
@@ -8,11 +8,14 @@ interface Props {
   sessionId: string | null;
   datasetMeta: DatasetMeta | null;
   labelColumn: string;
+  maxMemory: number;
+  recordBudget: RecordBudget | null;
   inferenceLimit: number;
   thresholdLow: number;
   thresholdHigh: number;
   predictionFilter: PredictionFilter;
   onLabelColumnChange: (val: string) => void;
+  onMaxMemoryChange: (val: number) => void;
   onInferenceLimitChange: (val: number) => void;
   onThresholdChange: (low: number, high: number) => void;
   onPredictionFilterChange: (val: PredictionFilter) => void;
@@ -32,14 +35,25 @@ const stepIdx: Record<Step, number> = {
 
 export default function Sidebar({
   step, loading, sessionId, datasetMeta,
-  labelColumn, inferenceLimit, thresholdLow, thresholdHigh, predictionFilter,
-  onLabelColumnChange, onInferenceLimitChange, onThresholdChange, onPredictionFilterChange,
+  labelColumn, maxMemory, recordBudget, inferenceLimit, thresholdLow, thresholdHigh, predictionFilter,
+  onLabelColumnChange, onMaxMemoryChange, onInferenceLimitChange, onThresholdChange, onPredictionFilterChange,
   onModelFile, onDatasetFile,
   onRunInference, onFindPairs, onClusterPlot,
 }: Props) {
   const idx = stepIdx[step];
   const analysisLocked = idx < 3;
   const totalRecords   = datasetMeta?.num_records ?? 0;
+  const inferenceLocked = (step !== "inference" && step !== "analysis") || loading;
+
+  // The RAM ceiling, not the dataset, decides how far the record slider can go
+  const recordCeiling = recordBudget
+    ? Math.min(totalRecords, recordBudget.max_records)
+    : totalRecords;
+
+  function handleMaxMemoryChange(raw: string) {
+    const parsed = parseInt(raw, 10);
+    onMaxMemoryChange(Number.isFinite(parsed) && parsed > 0 ? parsed : 0); //blank or junk means no ceiling
+  }
 
   return (
     <div className="col-left">
@@ -89,6 +103,39 @@ export default function Sidebar({
           <span className="card-num">03</span> Run Inference
         </h2>
 
+        <div className="threshold-row">
+          <div className="threshold-label-row">
+            <span className="threshold-label">Max RAM in MB (optional)</span>
+            {recordBudget && recordBudget.capped && (
+              <span className="threshold-val">
+                {recordBudget.max_records.toLocaleString()}
+                <span className="threshold-sep">/</span>
+                {totalRecords.toLocaleString()} records
+              </span>
+            )}
+          </div>
+          <input
+            className="text-input"
+            type="number"
+            min={0}
+            step={128}
+            placeholder="no limit"
+            value={maxMemory > 0 ? maxMemory : ""}
+            onChange={e => handleMaxMemoryChange(e.target.value)}
+            disabled={inferenceLocked}
+          />
+          {recordBudget && (
+            <p className="memory-note">
+              {recordBudget.capped
+                ? recordBudget.max_records === 0
+                  ? `Below the ${recordBudget.baseline_mb.toLocaleString()} MB already in use — raise the limit.`
+                  : `${inferenceLimit.toLocaleString()} records ≈ ${recordBudget.projected_mb.toLocaleString()} MB projected (${recordBudget.baseline_mb.toLocaleString()} MB baseline).`
+                : `Uncapped — all ${totalRecords.toLocaleString()} records ≈ ${recordBudget.projected_mb.toLocaleString()} MB projected.`}
+              {!recordBudget.exact && " Estimate is approximate: some layer shapes could not be resolved."}
+            </p>
+          )}
+        </div>
+
         {/* Record count slider */}
         {totalRecords > 0 && (
           <div className="threshold-row">
@@ -105,16 +152,20 @@ export default function Sidebar({
               type="range"
               className="slider"
               min={1}
-              max={totalRecords}
+              max={Math.max(1, recordCeiling)}
               step={1}
               value={inferenceLimit}
               onChange={e => onInferenceLimitChange(parseInt(e.target.value, 10))}
-              disabled={(step !== "inference" && step !== "analysis") || loading}
+              disabled={inferenceLocked || recordCeiling < 1}
             />
             <div className="threshold-axis">
               <span>1</span>
               <span style={{ textAlign: "center" }}>sample</span>
-              <span style={{ textAlign: "right" }}>all</span>
+              <span style={{ textAlign: "right" }}>
+                {recordCeiling < totalRecords
+                  ? `RAM cap (${recordCeiling.toLocaleString()})`
+                  : "all"}
+              </span>
             </div>
           </div>
         )}
@@ -122,7 +173,7 @@ export default function Sidebar({
         <button
           className="btn btn-primary"
           onClick={onRunInference}
-          disabled={(step !== "inference" && step !== "analysis") || loading}
+          disabled={inferenceLocked || recordCeiling < 1}
         >
           {loading && (step === "inference" || step === "analysis") ? "Running…" : "Run Inference"}
         </button>

@@ -3,7 +3,6 @@ import numpy as np
 from scipy.spatial.distance import cdist
 import umap
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import StandardScaler
 from ..api.types import PredictionFilter
 
 
@@ -12,7 +11,8 @@ class Net_Path_Vector_Analyzer:
         self.id_map: np.ndarray = self._get_id_mapping(inference_results)
         self.incorrect_ids = {rec['id'] for rec in inference_results if rec['correct'] == False}
 
-        #holds activation vectors for all records within inference_results. Consolidated here for faster computation 
+        #holds net path vectors (per-layer normalised, concatenated) for all records
+        #within inference_results. Consolidated here for faster computation
         self.activation_matrix: np.ndarray = self._get_activation_matrix(inference_results)
 
         #Matrix of i by j. where matrix[i][j] is the cosine distance betwen the activation vectors for record i and record j
@@ -27,12 +27,34 @@ class Net_Path_Vector_Analyzer:
     def _get_activation_matrix(self, inf_results: list[dict]) -> np.ndarray:
         return np.vstack([self._concat_layer_activations(r['layer_activations']) for r in inf_results]) #preserves the order of the input list
 
-    def _concat_layer_activations(self, per_layer: tuple[str,tuple[float]]):
-        flat = np.concatenate([
-            np.array(v, dtype=np.float32).flatten()
-            for v in per_layer.values()
-        ])
-        return flat
+    def _concat_layer_activations(self, per_layer: dict[str, list[float]]) -> np.ndarray:
+        """
+        Concatenate a record's per-layer activations into one net path vector,
+        L2 normalising each layer's block first.
+
+        Without the normalisation a layer's influence on the cosine distance is
+        proportional to its share of the total squared norm, which nothing
+        controls: on forest_cover_complex one hidden layer took 34% of the vector
+        while the output layer took 0.00%. Normalising per layer makes every
+        layer contribute an equal 1/L of the squared norm, which also gives the
+        metric a readable meaning -- the cosine similarity of two net path
+        vectors is then the mean of their per-layer cosine similarities.
+
+        A layer that is all zeros for this record has no direction to preserve
+        and is left as zeros, so it drops out of the mean for that record.
+        """
+        blocks = []
+
+        for values in per_layer.values():
+            block = np.array(values, dtype=np.float32).flatten()
+            norm = np.linalg.norm(block)
+
+            if norm > 0:
+                block = block / norm
+
+            blocks.append(block)
+
+        return np.concatenate(blocks)
 
     # Compute pairwise cosine distances in a single vectorized operation
     # Returns a (num_records, num_records) matrix where [i][j] is the cosine distance
@@ -79,11 +101,14 @@ class Net_Path_Vector_Analyzer:
         then returns data points with labels and record ids
         """
 
-        # Normalise before dimensionality reduction
-        scaled = StandardScaler().fit_transform(self.activation_matrix)
-  
+        # Reduce the same vectors, under the same metric, that the similar pairs
+        # panel uses. StandardScaler used to run here, but centring each feature
+        # moves the origin to the data centroid, and cosine distance on centred
+        # data is Pearson correlation -- a different measure, which disagreed
+        # with the pairs panel on 4 of its 10 closest pairs. The net path
+        # vectors are already per-layer normalised, so no scaling is needed.
         reducer = umap.UMAP(n_components=2, random_state=42, metric='cosine')
-        coords = reducer.fit_transform(scaled)
+        coords = reducer.fit_transform(self.activation_matrix)
 
         points = []
         for i, record in enumerate(inference_results):

@@ -1,4 +1,4 @@
-import type { ModelData, InferenceSummary, SimilarPair, PredictionFilter, Label } from "../types";
+import type { ModelData, InferenceSummary, SimilarPair, PredictionFilter, Label, RecordBudget } from "../types";
 
 const API_BASE = "http://localhost:8000";
 
@@ -33,17 +33,47 @@ export async function uploadDataset(
 
 export async function runInference(
   sessionId: string,
-  limit: number
-): Promise<{ summary: InferenceSummary }> {
+  limit: number,
+  maxMemoryMb?: number
+): Promise<{
+  summary: InferenceSummary;
+  num_results: number;
+  limit_applied: number;
+  limit_requested: number;
+  memory_capped: boolean;
+  record_budget: RecordBudget;
+}> {
   return apiFetch("/inference/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(
       { 
         session_id: sessionId,
-        limit: limit
+        limit: limit,
+        max_memory_mb: maxMemoryMb && maxMemoryMb > 0 ? maxMemoryMb : null
       }
     ),
+  });
+}
+
+/**
+ * Ask the backend how many records fit under a RAM ceiling, and what the
+ * currently selected record count is projected to cost. Cheap: reads model
+ * metadata only, so it is safe to call while the user is typing.
+ */
+export async function fetchRecordBudget(
+  sessionId: string,
+  maxMemoryMb: number,
+  selectedRecords?: number
+): Promise<RecordBudget> {
+  return apiFetch("/inference/record-budget", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      max_memory_mb: maxMemoryMb > 0 ? maxMemoryMb : null,
+      selected_records: selectedRecords ?? null
+    }),
   });
 }
 

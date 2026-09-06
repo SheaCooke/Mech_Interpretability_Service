@@ -3,7 +3,7 @@ Processing for .keras model files
 """
 
 from __future__ import annotations
-from typing import Any
+from typing import Any, Optional
 import numpy as np
 import keras
 import tensorflow as tf
@@ -15,6 +15,7 @@ from ..types import ModelMetadata, LayerInfo
 class KerasStrategy(ModelStrategy):
 
     #TODO: replace with dynamic process that is not hard coded
+    #Catches subclasses of the current keras.layers classes.
     _TRAINING_ONLY_LAYERS = (
         keras.layers.Dropout,
         keras.layers.AlphaDropout,
@@ -26,6 +27,43 @@ class KerasStrategy(ModelStrategy):
         keras.layers.RandomZoom,
         keras.layers.RandomCrop,
     )
+
+    #isinstance alone is not enough: keras restores some saved layers as
+    #keras.src.legacy.layers.*, which are distinct classes from keras.layers.*
+    #and fail the isinstance check while behaving identically. forest_cover_complex
+    #loads four AlphaDropout layers that way. Match on the class name too.
+    _TRAINING_ONLY_LAYER_NAMES = frozenset({
+        "Dropout",
+        "AlphaDropout",
+        "GaussianDropout",
+        "GaussianNoise",
+        "SpatialDropout1D",
+        "SpatialDropout2D",
+        "SpatialDropout3D",
+        "RandomTranslation",
+        "RandomRotation",
+        "RandomFlip",
+        "RandomZoom",
+        "RandomCrop",
+        "RandomBrightness",
+        "RandomContrast",
+    })
+
+
+    @classmethod
+    def _is_training_only(cls, layer: Any) -> bool:
+        """
+        True when a layer is the identity at inference time and so contributes
+        nothing but a duplicate of the layer before it.
+
+        Both the model metadata shown in the UI and the activation model built
+        for inference go through here, so the relevant_inference flag and what
+        actually gets collected cannot drift apart.
+        """
+        if isinstance(layer, cls._TRAINING_ONLY_LAYERS):
+            return True
+
+        return type(layer).__name__ in cls._TRAINING_ONLY_LAYER_NAMES
 
     def __init__(self):
         self._activation_model = None #same weights as the uploaded model, just exposes internal tensors
@@ -50,6 +88,55 @@ class KerasStrategy(ModelStrategy):
             return None
 
 
+    @staticmethod
+    def _layer_output_size(layer: Any) -> Optional[int]:
+        """
+        Number of activation values this layer emits for a single record.
+        This is the product of the layer's output shape with the batch dimension dropped,
+        so a Conv2D emitting (None, 26, 26, 32) counts as 21_632 values, not 32.
+        Returns None when the shape cannot be resolved (memory estimates then fall back
+        to a per-layer approximation).
+        """
+        shape = None
+
+        #keras 3 exposes the symbolic tensor, older versions expose output_shape directly
+        for accessor in (lambda: layer.output.shape, lambda: layer.output_shape):
+            try:
+                shape = accessor()
+                break
+            except Exception:
+                continue
+
+        if shape is None:
+            return None
+
+        #multi output layers report a list of shapes, sum them
+        if isinstance(shape, list):
+            sizes = [KerasStrategy._shape_to_size(s) for s in shape]
+            return sum(s for s in sizes if s is not None) or None
+
+        return KerasStrategy._shape_to_size(shape)
+
+
+    @staticmethod
+    def _shape_to_size(shape: Any) -> Optional[int]:
+        """
+        Multiply out a single shape tuple, skipping the leading batch dimension.
+        """
+        try:
+            dims = [d for d in tuple(shape)[1:]]
+        except Exception:
+            return None
+
+        size = 1
+        for d in dims:
+            if d is None: #an unresolved dim makes the total meaningless
+                return None
+            size *= int(d)
+
+        return size if size > 0 else None
+
+
     def extract_model_data(self, model: Any) -> ModelMetadata:
         layer_infos = []
  
@@ -62,7 +149,8 @@ class KerasStrategy(ModelStrategy):
                 type = type(layer).__name__,
                 activation = activation.__name__ if activation else "N/A",
                 num_neurons = getattr(layer, 'units', None),
-                relevant_inference = not isinstance(layer, self._TRAINING_ONLY_LAYERS)
+                relevant_inference = not self._is_training_only(layer),
+                output_size = self._layer_output_size(layer)
             ))
  
         return ModelMetadata(
@@ -76,10 +164,20 @@ class KerasStrategy(ModelStrategy):
 
 
     def _prepare(self, model: Any) -> None:
-        self._layer_names = [layer.name for layer in model.layers]
+        """
+        Build the activation model over the layers that carry a real signal.
+
+        Training only layers are skipped. At inference a Dropout is the identity,
+        so collecting it would put a bit for bit duplicate of the preceding layer
+        into the net path vector and silently double that layer's weight in every
+        cosine distance computed from it.
+        """
+        layers = [layer for layer in model.layers if not self._is_training_only(layer)]
+
+        self._layer_names = [layer.name for layer in layers]
         self._activation_model = keras.Model(
             inputs=model.inputs,
-            outputs=[layer.output for layer in model.layers]
+            outputs=[layer.output for layer in layers]
         )
 
 

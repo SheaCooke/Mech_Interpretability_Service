@@ -369,6 +369,17 @@ body {
   opacity: 0.6;
 }
 
+/* ── Memory budget readout ──────────────────────────────── */
+
+.memory-note {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  font-family: var(--mono);
+  color: var(--muted);
+  opacity: 0.75;
+}
+
 /* ── Status bar ─────────────────────────────────────────── */
 
 .status-bar {
