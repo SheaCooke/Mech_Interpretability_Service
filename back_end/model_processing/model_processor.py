@@ -1,12 +1,12 @@
 """
 coordinator class
 """
-
 from __future__ import annotations
 from typing import Optional
 from .factory import ModelStrategyFactory
 from .functional_components.dataset_functions import convert_to_parquet
 from .functional_components.summarizer import summarize_results
+from .functional_components.memory_estimation import estimate_record_budget
 from .types import ModelMetadata, InferenceRecord
 
 
@@ -23,19 +23,22 @@ class Model_Processor: #TODO: model processor name is not an accurate descriptio
 
     def run_inference(self, x_test_path: str, y_test_path: str, class_names: Optional[list], record_limit: int) -> list[InferenceRecord]:
         """
-        Run all records through the model and return InferenceRecord objects.
+        run all records through the model and return InferenceRecord objects
         """
         return self._strategy.run_inference(self.model, x_test_path, y_test_path, class_names, record_limit)
 
+    def estimate_record_budget(self, max_memory_mb: Optional[float], total_records: int, selected_records: Optional[int] = None) -> dict:
+        """
+        largest number of records this session can hold under a RAM ceiling,
+        assuming every analysis feature gets used on the result
+        """
+        return estimate_record_budget(self.model_data, max_memory_mb, total_records, selected_records)
+
     def summarize(self, results: list[InferenceRecord]) -> dict:
         """
-        Compute accuracy statistics from inference results.
+        compute accuracy statistics from inference results
         """
         return summarize_results(results)
 
     def results_to_dicts(self, results: list[InferenceRecord]) -> list[dict]:
-        """
-        Convert InferenceRecord objects to plain dicts for downstream
-        consumers (Net_Path_Vector_Analyzer, layer_analysis, JSON serialisation).
-        """
         return [r.to_dict() for r in results]

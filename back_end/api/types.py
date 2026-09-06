@@ -21,7 +21,14 @@ class ClusterPlotRequest(BaseModel):
 
 
 class InferenceRequest(BaseModel):
-    session_id:   str
-    label_column: Optional[str] = None
-    batch_size:   Optional[int] = None
-    limit:        Optional[int] = None  #num records to run. None = all
+    session_id:    str
+    label_column:  Optional[str] = None
+    batch_size:    Optional[int] = None
+    limit:         Optional[int] = None    #num records to run. None = all
+    max_memory_mb: Optional[float] = None  #RAM ceiling for the session. None or 0 = uncapped
+
+
+class RecordBudgetRequest(BaseModel):
+    session_id:    str
+    max_memory_mb: Optional[float] = None  #None or 0 = uncapped
+    selected_records: Optional[int] = None #record count to project a cost for. defaults to the budget

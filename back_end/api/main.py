@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from back_end.model_processing.net_path_vector_analyzer import Net_Path_Vector_Analyzer
 from back_end.model_processing.model_processor import Model_Processor
 from back_end.model_processing.functional_components.layer_analysis import compute_prototypes, compute_layer_deviations
-from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest
+from .types import PredictionFilter, SimilarPairsRequest, InferenceRequest, ClusterPlotRequest, RecordBudgetRequest
 from ..model_processing.types import InferenceRecord
 from .utilities import get_extension, numpy_safe
 from ..common import SUPPORTED_MODEL_EXTENSIONS, SUPPORTED_DATASET_EXTENSIONS, PARQUET_BASE_PATH
@@ -23,8 +23,7 @@ import shutil
 #class map needs to be stored in session
 # when reading vectors back in, need to be in dictionary format
 # store a map of layer index number to layer names
-# replace with equal number from all classes up to some memory limit. this means the algo will need to take network and vector size into account for calculating the max num of records
-# max RAM should be configurable. ^ should work backwards based on that.
+# replace with equal number from all classes up to some memory limit (see memory_estimation.py for the record budget)
 
 dictConfig({
   "version": 1,
@@ -110,7 +109,9 @@ async def upload_model(file: UploadFile = File(...)):
         "inference_results": None,
         "vector_analyzer": None,
         "x_test_path": None,
-        "y_test_path": None
+        "y_test_path": None,
+        "num_records": 0,
+        "max_memory_mb": None
     }
 
     return {
@@ -150,6 +151,7 @@ async def upload_dataset(
         session["x_test_path"] = x_path
         session["y_test_path"] = y_path
         session["class_mapping"] = class_mapping
+        session["num_records"] = num_records
 
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to load dataset: {str(e)}")
@@ -172,13 +174,35 @@ def run_inference(body: InferenceRequest):
 
     processor: Model_Processor = session["processor"]
 
+    total_records = session.get("num_records") or 0
+    requested = int(body.limit) if body.limit else total_records
+
+    #the RAM ceiling is the hard limit, the slider position only narrows it further
+    budget = processor.estimate_record_budget(body.max_memory_mb, total_records, requested)
+    record_limit = min(requested, budget["max_records"])
+
+    if record_limit <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"A {body.max_memory_mb} MB ceiling leaves no room for records: "
+                   f"{budget['baseline_mb']} MB is already in use before any are loaded."
+        )
+
+    session["max_memory_mb"] = body.max_memory_mb
+
+    if record_limit < requested:
+        logger.info(
+            f"session {body.session_id}: capping {requested} requested records to {record_limit} "
+            f"to stay under {body.max_memory_mb} MB"
+        )
+
     logger.info(f"running inference for session {body.session_id}")
 
     try:
         results: list[InferenceRecord] = processor.run_inference(session["x_test_path"], 
                                                                 session["y_test_path"], 
                                                                 session["class_mapping"],
-                                                                int(body.limit))
+                                                                record_limit)
     except Exception as e:
         logger.error(f"Inference failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
@@ -198,10 +222,34 @@ def run_inference(body: InferenceRequest):
     return {
         "session_id": body.session_id,
         "num_results": len(results),
-        "limit_applied": body.limit,
+        "limit_applied": record_limit,
+        "limit_requested": requested,
+        "memory_capped": record_limit < requested,
+        "record_budget": numpy_safe(budget),
         "summary": numpy_safe(summary)
     }
 
+
+@app.post("/inference/record-budget")
+def record_budget(body: RecordBudgetRequest):
+    """
+    How many records fit under a RAM ceiling, and what the current selection costs.
+    Called by the UI as the user types a max memory value, so it must stay cheap:
+    it reads model metadata only, never the dataset.
+    """
+    session = require_session(body.session_id)
+
+    processor: Model_Processor = session["processor"]
+    if processor is None:
+        raise HTTPException(status_code=400, detail="No model loaded for this session. Upload a model first.")
+
+    total_records = session.get("num_records") or 0
+    if total_records <= 0:
+        raise HTTPException(status_code=400, detail="No dataset loaded for this session. Upload a dataset first.")
+
+    budget = processor.estimate_record_budget(body.max_memory_mb, total_records, body.selected_records)
+
+    return numpy_safe({"session_id": body.session_id, **budget})
 
 
 @app.post("/analysis/similar-pairs")

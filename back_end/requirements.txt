@@ -19,3 +19,4 @@ python-multipart
 umap-learn>=0.5.5
 pytest
 pyarrow
+psutil

@@ -15,6 +15,7 @@ class LayerInfo:
     activation: Optional[str]
     num_neurons: Optional[int]
     relevant_inference: bool
+    output_size: Optional[int] = None #activation values this layer emits per record. None = could not be determined
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,8 @@ class ModelMetadata:
                     'type': l.type,
                     'activation': l.activation,
                     'num_neurons': l.num_neurons,
-                    'relevant_inference': l.relevant_inference
+                    'relevant_inference': l.relevant_inference,
+                    'output_size': l.output_size
                 }
                 for l in self.layers
             ]

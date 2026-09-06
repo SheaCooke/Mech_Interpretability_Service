@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Cpu } from "lucide-react";
 import "./styles/global.css";
 import {
   uploadModel, uploadDataset, runInference,
   fetchSimilarPairs, fetchClusterPlot, deleteSession,
   LayerDeviationData, IncorrectRecord, fetchLayerDeviation,
-  fetchIncorrectRecords,
+  fetchIncorrectRecords, fetchRecordBudget,
 } from "./api/client";
 import type {
   ModelData, InferenceSummary, SimilarPair,
-  DatasetMeta, StatusMessage, Step, PredictionFilter, Page,
+  DatasetMeta, StatusMessage, Step, PredictionFilter, Page, RecordBudget,
 } from "./types";
 import type { ClusterPlotData } from "./api/client";
 import Header       from "./components/Header";
@@ -36,7 +36,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [labelColumn, setLabelColumn] = useState("");
-  const [maxMemory, SetMaxMemory] = useState(0)
+  const [maxMemory, setMaxMemory] = useState(0);            //0 = no ceiling
+  const [recordBudget, setRecordBudget] = useState<RecordBudget | null>(null);
   const [thresholdLow,  setThresholdLow]  = useState(0.0);
   const [thresholdHigh, setThresholdHigh] = useState(0.2);
   const [predictionFilter, setPredictionFilter] = useState<PredictionFilter>("all");
@@ -48,6 +49,27 @@ export default function App() {
 
   function setErr(msg: string) { setStatus({ msg, type: "error"   }); setLoading(false); }
   function setOk (msg: string) { setStatus({ msg, type: "success" }); setLoading(false); }
+
+  // Price the RAM ceiling in records. Debounced because this fires on every
+  // keystroke in the max memory field and on every drag of the record slider.
+  useEffect(() => {
+    if (!sessionId || !datasetMeta) { setRecordBudget(null); return; }
+
+    const timer = setTimeout(() => {
+      fetchRecordBudget(sessionId, maxMemory, inferenceLimit)
+        .then(setRecordBudget)
+        .catch(() => setRecordBudget(null));
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [sessionId, datasetMeta, maxMemory, inferenceLimit]);
+
+  // A ceiling that has shrunk below the current selection wins over the slider
+  useEffect(() => {
+    if (recordBudget && inferenceLimit > recordBudget.max_records) {
+      setInferenceLimit(recordBudget.max_records);
+    }
+  }, [recordBudget]);
 
   async function handleModelFile(file: File) {
     setLoading(true);
@@ -83,16 +105,20 @@ export default function App() {
     setClusterData(null);
     setStatus({ msg: "Running inference…", type: "info" });
     try {
-      const res = await runInference(sessionId, inferenceLimit);
+      const res = await runInference(sessionId, inferenceLimit, maxMemory);
       setSummary(res.summary);
+      setRecordBudget(res.record_budget);
       setStep("analysis");
 
       // Immediately fetch incorrect records for layer-wise panel
       const inc = await fetchIncorrectRecords(sessionId);
       setIncorrectRecords(inc.records);
 
-
-      setOk("Inference complete.");
+      setOk(
+        res.memory_capped
+          ? `Inference complete — ${res.limit_applied.toLocaleString()} of ${res.limit_requested.toLocaleString()} records, capped by the ${maxMemory.toLocaleString()} MB limit.`
+          : "Inference complete."
+      );
     } catch (e: any) { setErr(e.message); }
   }
 
@@ -139,7 +165,7 @@ export default function App() {
     if (sessionId) await deleteSession(sessionId).catch(() => {});
     setSessionId(null); setModelData(null); setDatasetMeta(null);
     setSummary(null); setPairs(null); setClusterData(null);
-    setIncorrectRecords([]); setDeviationData(null);
+    setIncorrectRecords([]); setDeviationData(null); setRecordBudget(null);
     setStep("upload-model"); setStatus(null);
     setPredictionFilter("all");
   }
@@ -169,12 +195,13 @@ export default function App() {
             step={step} loading={loading} sessionId={sessionId}
             datasetMeta={datasetMeta} labelColumn={labelColumn}
             maxMemory={maxMemory}
+            recordBudget={recordBudget}
             inferenceLimit={inferenceLimit}
             thresholdLow={thresholdLow}
             thresholdHigh={thresholdHigh} 
             predictionFilter={predictionFilter}
             onLabelColumnChange={setLabelColumn}
-            onMaxMemoryChange={SetMaxMemory}
+            onMaxMemoryChange={setMaxMemory}
             onInferenceLimitChange={setInferenceLimit}
             onThresholdChange={(low, high) => { setThresholdLow(low); setThresholdHigh(high); }}
             onPredictionFilterChange={setPredictionFilter}

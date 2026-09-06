@@ -3,7 +3,7 @@ Processing for .keras model files
 """
 
 from __future__ import annotations
-from typing import Any
+from typing import Any, Optional
 import numpy as np
 import keras
 import tensorflow as tf
@@ -50,6 +50,55 @@ class KerasStrategy(ModelStrategy):
             return None
 
 
+    @staticmethod
+    def _layer_output_size(layer: Any) -> Optional[int]:
+        """
+        Number of activation values this layer emits for a single record.
+        This is the product of the layer's output shape with the batch dimension dropped,
+        so a Conv2D emitting (None, 26, 26, 32) counts as 21_632 values, not 32.
+        Returns None when the shape cannot be resolved (memory estimates then fall back
+        to a per-layer approximation).
+        """
+        shape = None
+
+        #keras 3 exposes the symbolic tensor, older versions expose output_shape directly
+        for accessor in (lambda: layer.output.shape, lambda: layer.output_shape):
+            try:
+                shape = accessor()
+                break
+            except Exception:
+                continue
+
+        if shape is None:
+            return None
+
+        #multi output layers report a list of shapes, sum them
+        if isinstance(shape, list):
+            sizes = [KerasStrategy._shape_to_size(s) for s in shape]
+            return sum(s for s in sizes if s is not None) or None
+
+        return KerasStrategy._shape_to_size(shape)
+
+
+    @staticmethod
+    def _shape_to_size(shape: Any) -> Optional[int]:
+        """
+        Multiply out a single shape tuple, skipping the leading batch dimension.
+        """
+        try:
+            dims = [d for d in tuple(shape)[1:]]
+        except Exception:
+            return None
+
+        size = 1
+        for d in dims:
+            if d is None: #an unresolved dim makes the total meaningless
+                return None
+            size *= int(d)
+
+        return size if size > 0 else None
+
+
     def extract_model_data(self, model: Any) -> ModelMetadata:
         layer_infos = []
  
@@ -62,7 +111,8 @@ class KerasStrategy(ModelStrategy):
                 type = type(layer).__name__,
                 activation = activation.__name__ if activation else "N/A",
                 num_neurons = getattr(layer, 'units', None),
-                relevant_inference = not isinstance(layer, self._TRAINING_ONLY_LAYERS)
+                relevant_inference = not isinstance(layer, self._TRAINING_ONLY_LAYERS),
+                output_size = self._layer_output_size(layer)
             ))
  
         return ModelMetadata(

@@ -5,6 +5,7 @@ export interface LayerData {
   num_neurons: number | null;
   weight_shape: number[] | null;
   relevant_inference: boolean;
+  output_size: number | null;
 }
 
 export interface ModelData {
@@ -39,6 +40,22 @@ export interface SimilarPair {
   distance: number;
   label_a: Label | null;
   label_b: Label | null;
+}
+
+/** Result of pricing a RAM ceiling in records. Mirrors estimate_record_budget in memory_estimation.py. */
+export interface RecordBudget {
+  max_records: number;
+  total_records: number;
+  activation_values_per_record: number;
+  bytes_per_record: number;
+  baseline_mb: number;
+  baseline_measured: boolean;
+  available_mb: number | null;
+  capped: boolean;
+  exact: boolean;
+  projected_records: number;
+  projected_mb: number;
+  safety_factor: number;
 }
 
 export interface DatasetMeta {
